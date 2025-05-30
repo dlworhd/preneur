@@ -1,0 +1,8 @@
+:root {
+    --navbar-height: 6vh;
+    --navbar-width: 100vw;
+}
+
+* {
+    color: var(--foreground);
+}

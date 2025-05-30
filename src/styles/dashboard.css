@@ -1,0 +1,37 @@
+:root {
+    /* 사이드 바 */
+    --sidebar-border: var(--border-1);
+    --sidebar-width: 240px;
+    --sidebar-height: 100vh;
+
+    /* 컨테이너 */
+    --container-border: var(--border-1);
+    --container-width: calc(100vw - var(--sidebar-width) - 32px);
+    --container-height: calc(100vh - 32px);
+    --container-background: #dcdcdc;
+}
+
+/* 다크모드 활성화 */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background: #01010b;
+        --foreground: #fafafa;
+        --border-1: #1d1d1d;
+        --border-2: #686868;
+        --container-background: #020202;
+    }
+}
+
+html,
+body {
+    overflow: hidden; /* 전체 페이지 스크롤 방지 */
+}
+
+.scrollbar-container::-webkit-scrollbar {
+    width: 5px;
+    background: none;
+}
+
+.scrollbar-container::-webkit-scrollbar-thumb {
+    background: #013f1445;
+}
