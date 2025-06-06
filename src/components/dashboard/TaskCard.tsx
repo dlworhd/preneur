@@ -3,9 +3,9 @@ import { CircleDashedIcon, CheckCircle, Circle } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-type TaskTag = "task" | "all";
+export type TaskTag = "task" | "all";
 
-interface Task {
+export interface Task {
     id: number;
     title: string;
     description: string;
@@ -134,6 +134,4 @@ export default function TaskCard({ task }: { task: Task }) {
             )}
         </div>
     );
-}
-
-export type { Task, TaskTag }; 
+} 

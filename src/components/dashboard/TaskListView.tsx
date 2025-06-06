@@ -1,54 +1,16 @@
 import { cn } from "@/lib/utils";
-import { Timer, AlertCircle, Tag, CircleDashedIcon, CheckCircle, Circle } from "lucide-react";
+import { CheckCircle, Circle, CircleDashedIcon } from "lucide-react";
 import { type Task, type TaskTag } from "./TaskCard";
 
-export default function TaskListView({
-    tasks,
-    activeTag,
-}: {
+interface TaskListViewProps {
     tasks: Task[];
     activeTag: TaskTag;
-}) {
-    const filteredTasks = tasks.filter((task) =>
-        activeTag === "all" ? true : task.tags.includes(activeTag)
-    );
+}
 
-    const getPriorityIcon = (priority: string) => {
-        switch (priority) {
-            case "high":
-                return (
-                    <AlertCircle
-                        width={16}
-                        height={16}
-                        className="text-[var(--icon-danger)]"
-                    />
-                );
-            case "medium":
-                return (
-                    <Timer
-                        width={16}
-                        height={16}
-                        className="text-[var(--icon-warning)]"
-                    />
-                );
-            case "low":
-                return (
-                    <CircleDashedIcon
-                        width={16}
-                        height={16}
-                        className="text-[var(--icon-muted)]"
-                    />
-                );
-            default:
-                return (
-                    <CircleDashedIcon
-                        width={16}
-                        height={16}
-                        className="text-[var(--icon-muted)]"
-                    />
-                );
-        }
-    };
+export default function TaskListView({ tasks, activeTag }: TaskListViewProps) {
+    const filteredTasks = tasks.filter(
+        (task) => activeTag === "all" || task.tags.includes(activeTag)
+    );
 
     const getStatusIcon = (status: string) => {
         switch (status) {
@@ -98,33 +60,27 @@ export default function TaskListView({
     };
 
     const renderTaskRow = (task: Task) => (
-        <tr
+        <div
             key={task.id}
-            className="border-b border-[var(--container-border)] hover:bg-amber-100/10 transition-colors"
+            className={cn(
+                "text-sm",
+                "hover:bg-amber-100/10 text-[var(--secondary)]",
+                "flex h-[40px] p-2 border-b border-[var(--container-border)]"
+            )}
         >
-            <td className="p-3">
-                <div className="flex items-center gap-3">
-                    {getStatusIcon(task.status)}
-                    <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium text-[var(--secondary)] truncate">
-                            {task.title}
-                        </h4>
-                        <p className="text-xs text-[var(--secondary)] opacity-60 truncate">
-                            {task.description}
-                        </p>
+            <div className="flex items-center flex-[0.5]">
+                {getStatusIcon(task.status)}
+            </div>
+            <div className="flex items-center flex-[4.5] cursor-pointer">
+                <div className="w-full">
+                    <div className="truncate font-medium">{task.title}</div>
+                    <div className="text-xs opacity-60 truncate">
+                        {task.description}
                     </div>
                 </div>
-            </td>
-            <td className="p-3">
-                <div className="flex items-center gap-1">
-                    {getPriorityIcon(task.priority)}
-                    <span className="text-xs text-[var(--secondary)] opacity-60 capitalize">
-                        {task.priority}
-                    </span>
-                </div>
-            </td>
-            <td className="p-3">
-                <div className="flex gap-1">
+            </div>
+            <div className="flex items-center flex-[1.5] cursor-pointer">
+                <div className="flex gap-1 flex-wrap">
                     {task.tags.map((tag, index) => (
                         <span
                             key={index}
@@ -137,46 +93,31 @@ export default function TaskListView({
                         </span>
                     ))}
                 </div>
-            </td>
-            <td className="p-3">
-                <span className="text-xs text-[var(--secondary)] opacity-60">
-                    {task.assignee}
-                </span>
-            </td>
-            <td className="p-3">
-                <span className="text-xs text-[var(--secondary)] opacity-60">
-                    {new Date(task.dueDate).toLocaleDateString("ko-KR")}
-                </span>
-            </td>
-        </tr>
+            </div>
+            <div className="flex justify-center items-center flex-[1] cursor-pointer">
+                {task.progress && task.target ? (
+                    <span className="text-xs">
+                        {task.progress}/{task.target} {task.unit}
+                    </span>
+                ) : (
+                    <span className="text-xs">{task.status}</span>
+                )}
+            </div>
+            <div className="flex justify-center items-center flex-[1] cursor-pointer text-xs">
+                {task.assignee}
+            </div>
+            <div className="flex justify-end items-center flex-[1] cursor-pointer text-xs opacity-60">
+                {new Date(task.dueDate).toLocaleDateString("ko-KR", {
+                    month: "short",
+                    day: "numeric",
+                })}
+            </div>
+        </div>
     );
 
     return (
-        <div className="overflow-x-auto">
-            <table className="w-full">
-                <thead className="bg-[var(--gray-50)] border-b border-[var(--container-border)]">
-                    <tr>
-                        <th className="text-left p-3 text-xs font-medium text-[var(--secondary)] opacity-60 uppercase tracking-wider">
-                            작업
-                        </th>
-                        <th className="text-left p-3 text-xs font-medium text-[var(--secondary)] opacity-60 uppercase tracking-wider">
-                            우선순위
-                        </th>
-                        <th className="text-left p-3 text-xs font-medium text-[var(--secondary)] opacity-60 uppercase tracking-wider">
-                            태그
-                        </th>
-                        <th className="text-left p-3 text-xs font-medium text-[var(--secondary)] opacity-60 uppercase tracking-wider">
-                            담당자
-                        </th>
-                        <th className="text-left p-3 text-xs font-medium text-[var(--secondary)] opacity-60 uppercase tracking-wider">
-                            마감일
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {filteredTasks.map(renderTaskRow)}
-                </tbody>
-            </table>
-        </div>
+        <>
+            {filteredTasks.map(renderTaskRow)}
+        </>
     );
 } 

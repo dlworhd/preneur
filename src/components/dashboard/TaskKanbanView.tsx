@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
     DndContext,
     type DragEndEvent,
@@ -8,25 +8,28 @@ import {
     useSensor,
     useSensors,
     closestCenter,
-    type DragOverEvent,
 } from "@dnd-kit/core";
-import { arrayMove } from "@dnd-kit/sortable";
-import TaskKanbanColumn from "./TaskKanbanColumn";
+import {
+    SortableContext,
+    verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import TaskCard, { type Task, type TaskTag } from "./TaskCard";
+import TaskKanbanColumn from "./TaskKanbanColumn";
+
+interface TaskKanbanViewProps {
+    tasks: Task[];
+    onTaskMove: (taskId: number, newStatus: string, newIndex?: number) => void;
+    onAddTask: (title: string, status: string) => void;
+    activeTag: TaskTag;
+}
 
 export default function TaskKanbanView({
     tasks,
     onTaskMove,
     onAddTask,
     activeTag,
-}: {
-    tasks: Task[];
-    onTaskMove: (taskId: number, newStatus: string, newIndex?: number) => void;
-    onAddTask: (title: string, status: string) => void;
-    activeTag: TaskTag;
-}) {
-    const [activeTask, setActiveTask] = useState<Task | null>(null);
-
+}: TaskKanbanViewProps) {
+    const [activeId, setActiveId] = React.useState<number | null>(null);
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
@@ -35,137 +38,91 @@ export default function TaskKanbanView({
         })
     );
 
-    const filteredTasks = tasks.filter((task) =>
-        activeTag === "all" ? true : task.tags.includes(activeTag)
+    const filteredTasks = tasks.filter(
+        (task) => activeTag === "all" || task.tags.includes(activeTag)
     );
 
-    const todoTasks = filteredTasks.filter((task) => task.status === "todo");
-    const inProgressTasks = filteredTasks.filter(
-        (task) => task.status === "in-progress"
-    );
-    const reviewTasks = filteredTasks.filter(
-        (task) => task.status === "review"
-    );
-    const doneTasks = filteredTasks.filter((task) => task.status === "done");
+    const columns = [
+        {
+            id: "todo",
+            title: "To Do",
+            status: "todo",
+            tasks: filteredTasks.filter((task) => task.status === "todo"),
+        },
+        {
+            id: "in-progress",
+            title: "In Progress",
+            status: "in-progress",
+            tasks: filteredTasks.filter((task) => task.status === "in-progress"),
+        },
+        {
+            id: "review",
+            title: "Review",
+            status: "review",
+            tasks: filteredTasks.filter((task) => task.status === "review"),
+        },
+        {
+            id: "done",
+            title: "Done",
+            status: "done",
+            tasks: filteredTasks.filter((task) => task.status === "done"),
+        },
+    ];
 
     const handleDragStart = (event: DragStartEvent) => {
-        const task = tasks.find((t) => t.id === event.active.id);
-        setActiveTask(task || null);
-    };
-
-    const handleDragOver = (event: DragOverEvent) => {
-        const { active, over } = event;
-        if (!over) return;
-
-        const activeId = active.id;
-        const overId = over.id;
-
-        if (activeId === overId) return;
-
-        const activeTask = tasks.find((t) => t.id === activeId);
-        const overTask = tasks.find((t) => t.id === overId);
-
-        if (!activeTask) return;
-
-        const isActiveATask = activeTask !== undefined;
-        const isOverATask = overTask !== undefined;
-
-        if (!isActiveATask) return;
-
-        // Task over task
-        if (isActiveATask && isOverATask) {
-            if (activeTask.status !== overTask.status) {
-                onTaskMove(Number(activeId), overTask.status);
-            }
-        }
-
-        const isOverAColumn = [
-            "todo",
-            "in-progress", 
-            "review",
-            "done",
-        ].includes(String(overId));
-
-        // Task over column
-        if (isActiveATask && isOverAColumn) {
-            onTaskMove(Number(activeId), String(overId));
-        }
+        setActiveId(event.active.id as number);
     };
 
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
-        setActiveTask(null);
 
-        if (!over) return;
-
-        const activeId = active.id;
-        const overId = over.id;
-
-        if (activeId === overId) return;
-
-        const activeTask = tasks.find((t) => t.id === activeId);
-        const overTask = tasks.find((t) => t.id === overId);
-
-        if (!activeTask) return;
-
-        const isActiveATask = activeTask !== undefined;
-        const isOverATask = overTask !== undefined;
-
-        if (!isActiveATask) return;
-
-        // Task over task - 같은 컬럼 내에서 순서 변경
-        if (isActiveATask && isOverATask && activeTask.status === overTask.status) {
-            const activeIndex = tasks
-                .filter((t) => t.status === activeTask.status)
-                .findIndex((t) => t.id === activeId);
-            const overIndex = tasks
-                .filter((t) => t.status === overTask.status)
-                .findIndex((t) => t.id === overId);
-
-            if (activeIndex !== overIndex) {
-                onTaskMove(Number(activeId), activeTask.status, overIndex);
-            }
+        if (!over) {
+            setActiveId(null);
+            return;
         }
+
+        const activeId = active.id as number;
+        const overId = over.id as string;
+
+        // 컬럼으로 드롭된 경우
+        if (overId.startsWith("column-")) {
+            const newStatus = overId.replace("column-", "");
+            onTaskMove(activeId, newStatus);
+        }
+
+        setActiveId(null);
     };
+
+    const activeTask = activeId
+        ? filteredTasks.find((task) => task.id === activeId)
+        : null;
 
     return (
         <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
             onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
         >
-            <div className="flex gap-4 h-full overflow-x-auto pb-4">
-                <TaskKanbanColumn
-                    id="todo"
-                    title="할 일"
-                    tasks={todoTasks}
-                    status="todo"
-                    onAddTask={onAddTask}
-                />
-                <TaskKanbanColumn
-                    id="in-progress"
-                    title="진행 중"
-                    tasks={inProgressTasks}
-                    status="in-progress"
-                    onAddTask={onAddTask}
-                />
-                <TaskKanbanColumn
-                    id="review"
-                    title="리뷰"
-                    tasks={reviewTasks}
-                    status="review"
-                    onAddTask={onAddTask}
-                />
-                <TaskKanbanColumn
-                    id="done"
-                    title="완료"
-                    tasks={doneTasks}
-                    status="done"
-                    onAddTask={onAddTask}
-                />
+            <div className="flex gap-4 h-full p-4 overflow-x-auto">
+                {columns.map((column) => (
+                    <div key={column.id} className="flex-1 min-w-[280px]">
+                        <SortableContext
+                            items={column.tasks.map((task) => task.id)}
+                            strategy={verticalListSortingStrategy}
+                        >
+                            <TaskKanbanColumn
+                                id={`column-${column.status}`}
+                                title={column.title}
+                                tasks={column.tasks}
+                                status={column.status}
+                                onAddTask={onAddTask}
+                            />
+                        </SortableContext>
+                    </div>
+                ))}
             </div>
+
             <DragOverlay>
                 {activeTask ? <TaskCard task={activeTask} /> : null}
             </DragOverlay>
