@@ -39,6 +39,7 @@ interface SelectTriggerProps {
 
 interface SelectItemProps {
     value: string;
+    align?: 'start' | 'center' | 'end';
     className?: string;
     children: React.ReactNode;
 }
@@ -99,7 +100,7 @@ export function SelectContent({ className, children }: { className?: string; chi
     return (
         <div
             className={cn(
-                "border border-[var(--border-1)] bg-[var(--container-background)] rounded-sm",
+                "border border-[var(--border)] bg-[var(--background)] rounded-sm",
                 "absolute top-full left-0 items-center w-full mt-2 p-2 z-50",
                 className
             )}
@@ -144,6 +145,7 @@ export function SelectValue({ className, placeholder }: { className?: string; pl
 
 export function SelectItem({
     value,
+    align='start',
     className,
     children,
 }: SelectItemProps) {
@@ -157,7 +159,8 @@ export function SelectItem({
     return (
         <div
             className={cn(
-                "text-sm flex gap-4 items-center h-[32px] cursor-pointer hover:opacity-40",
+                `w-full text-sm text-${align} items-center h-[32px] cursor-pointer hover:opacity-40`,
+                align !== 'center' ? 'flex gap-4' : '', // 배열이 가운데인 경우는 아이콘이 없을 것이라고 판단하여 중앙 정렬을 위해 flex 적용 => 추후 리팩토링 필요
                 className
             )}
             onClick={handleItemClick}

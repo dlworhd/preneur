@@ -1,7 +1,7 @@
 import "@/styles/globals.css";
 import "@/styles/dashboard.css";
 import Container from "@/components/dashboard/Container";
-import SideBar from "@/components/dashboard/Sidebar";
+import SideBar from "@/components/dashboard/common/Sidebar";
 import { cn } from "@/lib/utils";
 import { Outlet } from "react-router-dom";
 

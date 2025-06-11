@@ -330,14 +330,14 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                 {/* 커맨드 목록 */}
                 <div className="max-h-96 overflow-y-auto">
                     {filteredCommands.length === 0 ? (
-                        <div className="text-center py-12">
+                        <div className="enter py-12">
                             <Search className="w-8 h-8 mx-auto mb-4 text-[var(--secondary)]/40" />
                             <p className="text-[var(--secondary)]/60 font-medium">
                                 {searchQuery.trim() === ""
                                     ? "커맨드를 검색해보세요"
                                     : "일치하는 커맨드가 없습니다"}
                             </p>
-                            <p className="text-sm text-[var(--secondary)]/40 mt-1">
+                            <p className="m text-[var(--secondary)]/40 mt-1">
                                 다른 키워드로 검색해보세요
                             </p>
                         </div>
@@ -366,7 +366,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                                                         {command.icon}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <div className="font-medium text-[var(--secondary)] text-sm">
+                                                        <div className="font-medium text-[var(--secondary)] m">
                                                             {command.title}
                                                         </div>
                                                         {command.description && (
@@ -391,9 +391,9 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                 </div>
 
                 {/* 도움말 */}
-                <div className="text-center pt-4 border-t border-[var(--container-border)]/20">
+                <div className="enter pt-4 border-t border-[var(--container-border)]/20">
                     <p className="text-xs text-[var(--secondary)]/40">
-                        <kbd className="px-2 py-1 bg-[var(--container-border)]/20 rounded">Cmd</kbd> + <kbd className="px-2 py-1 bg-[var(--container-border)]/20 rounded">/</kbd> 로 언제든 열 수 있습니다
+                        <kbd className="px-2 py-1 bg-[var(--container-border)]/20 rounded">Command</kbd> + <kbd className="px-2 py-1 bg-[var(--container-border)]/20 rounded">K</kbd> 로 언제든 열 수 있습니다
                     </p>
                 </div>
             </div>

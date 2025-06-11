@@ -108,13 +108,13 @@ function RoutineCard({ routine }: { routine: Routine }) {
             {...listeners}
             className={cn(
                 "p-3 rounded-lg border border-[var(--container-border)]",
-                "bg-[var(--background)] hover:bg-amber-100/10",
+                "bg-[var(--background)] hover:bg-[var(--secondary-hover)]/20",
                 "cursor-grab active:cursor-grabbing transition-colors relative",
                 isDragging && "opacity-50 z-40"
             )}
         >
             <div className="flex items-start justify-between mb-2">
-                <h4 className="text-sm font-medium text-[var(--secondary)] truncate pr-2">
+                <h4 className="m font-medium text-[var(--secondary)] truncate pr-2">
                     {routine.title}
                 </h4>
                 <div className="flex items-center gap-2">
@@ -242,7 +242,7 @@ function DroppableColumn({
     return (
         <div className="flex-1 min-w-0 flex flex-col border border-[var(--container-border)] rounded-2xl h-full">
             <div className="bg-[var(--background)] p-3 flex-shrink-0 border-b border-[var(--container-border)] rounded-t-2xl">
-                <h3 className="text-sm font-medium text-[var(--secondary)] flex items-center gap-2">
+                <h3 className="m font-medium text-[var(--secondary)] flex items-center gap-2">
                     {getStatusIcon(status)}
                     {title}
                     <span className="text-xs opacity-60">
@@ -264,13 +264,13 @@ function DroppableColumn({
                 {/* Add Routine Area */}
                 <div className="relative">
                     {showAddRoutine ? (
-                        <form onSubmit={handleAddRoutine} className="p-3 border-2 border-dashed border-[var(--primary)] rounded-lg bg-[var(--background)]">
+                        <form onSubmit={handleAddRoutine} className="p-3 border border-dashed border-[var(--primary)] rounded-lg bg-[var(--background)]">
                             <input
                                 type="text"
                                 value={newRoutineTitle}
                                 onChange={(e) => setNewRoutineTitle(e.target.value)}
                                 placeholder="새 루틴 제목을 입력하세요..."
-                                className="w-full text-sm bg-transparent border-none outline-none text-[var(--secondary)] placeholder-[var(--secondary)] placeholder-opacity-60"
+                                className="w-full m bg-transparent border-none outline-none text-[var(--secondary)] placeholder-[var(--secondary)] placeholder-opacity-60"
                                 autoFocus
                                 onBlur={() => {
                                     if (!newRoutineTitle) setShowAddRoutine(false);
@@ -283,13 +283,13 @@ function DroppableColumn({
                                 }}
                             />
                             <div className="flex gap-2 mt-2">
-                                <button
+                                <Button
                                     type="submit"
-                                    className="text-xs px-2 py-1 bg-[var(--primary)] text-white rounded hover:opacity-80"
+                                    className="text-xs px-2 py-1 bg-[var(--primary)]  rounded hover:opacity-80"
                                 >
                                     추가
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     type="button"
                                     onClick={() => {
                                         setNewRoutineTitle("");
@@ -298,15 +298,15 @@ function DroppableColumn({
                                     className="text-xs px-2 py-1 text-[var(--secondary)] opacity-60 hover:opacity-100"
                                 >
                                     취소
-                                </button>
+                                </Button>
                             </div>
                         </form>
                     ) : (
                         <div 
-                            className="p-3 border-2 border-dashed border-transparent rounded-lg hover:border-[var(--primary)] hover:bg-[var(--primary)]/5 transition-all cursor-pointer"
+                            className="p-3 border border-dashed border-transparent rounded-lg hover:border-[var(--primary)] hover:bg-[var(--primary)]/5 transition-all cursor-pointer"
                             onClick={() => setShowAddRoutine(true)}
                         >
-                            <div className="text-center text-xs text-[var(--secondary)] opacity-40 hover:opacity-60">
+                            <div className="enter text-xs text-[var(--secondary)] opacity-40 hover:opacity-60">
                                 <PlusIcon width={16} height={16} className="mx-auto mb-1" />
                                 새 루틴 추가
                             </div>
@@ -509,7 +509,7 @@ function KanbanView({
                         )}
                     >
                         <div className="flex items-start justify-between mb-2">
-                            <h4 className="text-sm font-medium text-[var(--secondary)] truncate pr-2">
+                            <h4 className="m font-medium text-[var(--secondary)] truncate pr-2">
                                 {activeRoutine.title}
                             </h4>
                         </div>
@@ -848,7 +848,7 @@ export default function RoutinesPage() {
                         </div>
                     </div>
                     <div className="flex gap-1">
-                        <div className="p-2 rounded-md bg-[var(--primary)] text-white">
+                        <div className="p-2 rounded-md bg-[var(--primary)] ">
                             <List width={16} height={16} />
                         </div>
                         <div className="p-2 rounded-md text-[var(--secondary)] opacity-60">
@@ -865,51 +865,55 @@ export default function RoutinesPage() {
 
     return (
         <div className={cn("flex flex-col h-full")}>
-            {/* 헤더 */}
+            {/* 헤더 - 태그 네비게이션 + 뷰 토글 */}
             <div
                 className={cn(
-                    "border-b border-[var(--container-border)]",
+                    "bg-[var(--background)] border-b border-[var(--container-border)]",
                     "flex items-center justify-between px-4 h-12"
                 )}
             >
                 <div className="flex gap-2">
-                    <div className="flex items-center gap-2 text-sm font-medium py-1">
+                    <Button
+                        className={cn(
+                            "flex items-center gap-2 text-sm font-medium py-1 rounded-md transition-colors"
+                        )}
+                    >
                         <Zap width={16} height={16} />
-                        Routines
-                    </div>
+                        Routine
+                    </Button>
                 </div>
 
                 {/* 뷰 토글 */}
                 <div className="flex gap-1">
-                    <button
+                    <Button
                         onClick={() => setViewMode("list")}
                         className={cn(
                             "p-2 rounded-md transition-colors",
                             viewMode === "list"
-                                ? "bg-[var(--primary)] text-white"
-                                : "text-[var(--secondary)] hover:bg-amber-100/10"
+                                ? "bg-[var(--primary)]"
+                                : "hover:bg-[var(--secondary-hover)]/20"
                         )}
                     >
                         <List width={16} height={16} />
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         onClick={() => setViewMode("kanban")}
                         className={cn(
                             "p-2 rounded-md transition-colors",
                             viewMode === "kanban"
-                                ? "bg-[var(--primary)] text-white"
-                                : "text-[var(--secondary)] hover:bg-amber-100/10"
+                                ? "bg-[var(--primary)]"
+                                : "hover:bg-[var(--secondary-hover)]/20"
                         )}
                     >
                         <LayoutGrid width={16} height={16} />
-                    </button>
+                    </Button>
                 </div>
             </div>
 
             {/* 액션 바 */}
             <div
                 className={cn(
-                    "border-b border-[var(--container-border)]",
+                    "bg-[var(--background)] border-b border-[var(--container-border)]",
                     "flex justify-between items-center px-4 h-12"
                 )}
             >
@@ -954,12 +958,7 @@ export default function RoutinesPage() {
                                         <Timer width={16} height={16} />
                                         시간 예약 루틴
                                         <span className="text-xs opacity-60">
-                                            (
-                                            {
-                                                routines.filter((r) => r.time)
-                                                    .length
-                                            }
-                                            개)
+                                            ({routines.filter((r) => r.time).length}개)
                                         </span>
                                     </h3>
                                 </div>
@@ -978,18 +977,10 @@ export default function RoutinesPage() {
                             <div>
                                 <div className="px-2 py-3 border-b border-[var(--container-border)] bg-[var(--background)] sticky top-0 z-10">
                                     <h3 className="text-sm font-medium text-[var(--secondary)] flex items-center gap-2">
-                                        <CircleDashedIcon
-                                            width={16}
-                                            height={16}
-                                        />
+                                        <CircleDashedIcon width={16} height={16} />
                                         일반 루틴
                                         <span className="text-xs opacity-60">
-                                            (
-                                            {
-                                                routines.filter((r) => !r.time)
-                                                    .length
-                                            }
-                                            개)
+                                            ({routines.filter((r) => !r.time).length}개)
                                         </span>
                                     </h3>
                                 </div>

@@ -1,10 +1,10 @@
 import { cn } from "@/lib/utils";
 import { PlusIcon, List, LayoutGrid, Tag, CircleDashedIcon } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Button from "@/components/common/Button";
-import TaskKanbanView from "@/components/dashboard/TaskKanbanView";
-import TaskListView from "@/components/dashboard/TaskListView";
-import { type Task, type TaskTag } from "@/components/dashboard/TaskCard";
+import TaskKanbanView from "@/components/dashboard/tasks/TaskKanbanView";
+import TaskListView from "@/components/dashboard/tasks/TaskListView";
+import { type Task, type TaskTag } from "@/components/dashboard/tasks/TaskCard";
 
 type ViewMode = "list" | "kanban";
 
@@ -155,7 +155,7 @@ export default function TasksPage() {
                         </div>
                     </div>
                     <div className="flex gap-1">
-                        <div className="p-2 rounded-md bg-[var(--primary)] text-white">
+                        <div className="p-2 rounded-md bg-[var(--primary)]">
                             <List width={16} height={16} />
                         </div>
                         <div className="p-2 rounded-md text-[var(--secondary)] opacity-60">
@@ -173,49 +173,49 @@ export default function TasksPage() {
     }
 
     return (
-        <div className={cn("flex flex-col h-full")}>
+        <div className={cn("bg-[var(--background)] flex flex-col h-full")}>
             {/* 헤더 - 태그 네비게이션 + 뷰 토글 */}
             <div
                 className={cn(
-                    "border-b border-[var(--container-border)]",
+                    "bg-[var(--background)] border-b border-[var(--container-border)]",
                     "flex items-center justify-between px-4 h-12"
                 )}
             >
                 <div className="flex gap-2">
-                    <button
+                    <Button
                         className={cn(
                             "flex items-center gap-2 text-sm font-medium py-1 rounded-md transition-colors"
                         )}
                     >
                         <CircleDashedIcon width={16} height={16} />
                         Task
-                    </button>
+                    </Button>
                 </div>
 
                 {/* 뷰 토글 */}
                 <div className="flex gap-1">
-                    <button
+                    <Button
                         onClick={() => setViewMode("list")}
                         className={cn(
                             "p-2 rounded-md transition-colors",
                             viewMode === "list"
-                                ? "bg-[var(--primary)] text-white"
-                                : "text-[var(--secondary)] hover:bg-amber-100/10"
+                                ? "bg-[var(--primary)]"
+                                : "hover:bg-[var(--secondary-hover)]/20"
                         )}
                     >
                         <List width={16} height={16} />
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         onClick={() => setViewMode("kanban")}
                         className={cn(
                             "p-2 rounded-md transition-colors",
                             viewMode === "kanban"
-                                ? "bg-[var(--primary)] text-white"
-                                : "text-[var(--secondary)] hover:bg-amber-100/10"
+                                ? "bg-[var(--primary)] "
+                                : "hover:bg-[var(--secondary-hover)]/20"
                         )}
                     >
                         <LayoutGrid width={16} height={16} />
-                    </button>
+                    </Button>
                 </div>
             </div>
 

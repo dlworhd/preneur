@@ -8,7 +8,9 @@ import {
     SkipForward,
     Volume2,
     VolumeX,
+    HelpCircle,
 } from "lucide-react";
+import Button from "../../common/Button";
 
 export default function NavFooter() {
     // Command palette hook
@@ -71,8 +73,8 @@ export default function NavFooter() {
             const audioElement = new Audio();
             audioElement.preload = "metadata";
             audioElement.crossOrigin = "anonymous";
-            // 자동재생을 위한 설정 (브라우저 정책에 따라 제한될 수 있음)
-            audioElement.autoplay = false; // 명시적으로 false로 설정
+            audioElement.volume = 0.5;
+            audioElement.src = playlist[0].src;
             setAudio(audioElement);
 
             // 오디오 이벤트 리스너
@@ -243,8 +245,8 @@ export default function NavFooter() {
         const newVolume = parseInt(e.target.value);
         setVolume(newVolume);
         
-        // 볼륨을 조절하면 음소거 해제
-        if (newVolume > 0 && isMuted) {
+        // 음소거 상태에서 볼륨바를 조정하면 자동으로 음소거 해제
+        if (isMuted) {
             setIsMuted(false);
         }
         
@@ -279,7 +281,17 @@ export default function NavFooter() {
             
             
             {/* Unified Music Player Box */}
-            <div className="w-full bg-[var(--background)]/90 border border-[var(--container-border)]/50 rounded-lg p-3 text-[var(--secondary)] opacity-60 hover:opacity-100 transition-opacity duration-300">
+            <div className="w-full bg-[var(--background)]/90 border border-[var(--container-border)]/50 rounded-lg p-3 text-[var(--secondary)] opacity-60 hover:opacity-100 transition-opacity duration-300 relative">
+                {/* Help Icon */}
+                <div className="absolute top-2 right-2 group">
+                    <Button className="p-0.5 rounded-full hover:bg-[var(--primary)]/10 transition-colors">
+                        <HelpCircle width={10} height={10} className="opacity-40 hover:opacity-70" />
+                    </Button>
+                    <div className="absolute bottom-full right-0 mb-1 px-2 py-1 bg-[var(--background)] border border-[var(--container-border)] rounded text-[8px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                        로열티 프리 음악입니다 :)
+                    </div>
+                </div>
+                
                 {/* Track Info */}
                 <div className="text-center mb-2">
                     <div className="text-[10px] font-medium truncate flex items-center justify-center gap-1">
@@ -306,13 +318,13 @@ export default function NavFooter() {
                 <div className="flex items-center justify-between mb-2">
                     {/* Music Controls */}
                     <div className="flex items-center gap-1">
-                        <button
+                        <Button
                             onClick={prevTrack}
                             className="p-0.5 rounded hover:bg-[var(--primary)]/10 transition-colors"
                         >
                             <SkipBack width={10} height={10} />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             onClick={togglePlay}
                             className="p-0.5 rounded hover:bg-[var(--primary)]/10 transition-colors"
                         >
@@ -321,25 +333,25 @@ export default function NavFooter() {
                             ) : (
                                 <Play width={12} height={12} />
                             )}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             onClick={stopMusic}
                             className="p-0.5 rounded hover:bg-[var(--primary)]/10 transition-colors"
                             title="정지"
                         >
                             <Square width={10} height={10} />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             onClick={nextTrack}
                             className="p-0.5 rounded hover:bg-[var(--primary)]/10 transition-colors"
                         >
                             <SkipForward width={10} height={10} />
-                        </button>
+                        </Button>
                     </div>
 
                     {/* Volume Control */}
                     <div className="flex items-center gap-1">
-                        <button
+                        <Button
                             onClick={toggleMute}
                             className="p-0.5 rounded hover:bg-[var(--primary)]/10 transition-colors"
                             title={isMuted ? "음소거 해제" : "음소거"}
@@ -349,7 +361,7 @@ export default function NavFooter() {
                             ) : (
                                 <Volume2 width={10} height={10} />
                             )}
-                        </button>
+                        </Button>
                         <input
                             type="range"
                             min="0"

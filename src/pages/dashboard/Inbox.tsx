@@ -2,17 +2,18 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Filter, Search } from "lucide-react";
 import PageHeader from "@/components/dashboard/PageHeader";
-import FilterButton from "@/components/dashboard/FilterButton";
+import FilterButton from "@/components/common/FilterButton";
+import Button from "@/components/common/Button";
 
 function EmptyInboxState() {
     return (
-        <div className="flex flex-col items-center justify-center h-full">
+        <div className="bg-[var(--background)] flex flex-col items-center justify-center h-full">
             <div className="mb-8">
                 <div className="w-20 h-32 relative">
                     {/* 휴대폰 외곽선 */}
                     <div className={cn(
                         "w-full h-full",
-                        "border-2 border-[var(--container-border)]",
+                        "border border-[var(--container-border)]",
                         "rounded-xl bg-[var(--background)]",
                         "relative"
                     )}>
@@ -33,7 +34,7 @@ function EmptyInboxState() {
                     </div>
                 </div>
             </div>
-            <div className="text-center">
+            <div className="enter">
                 <h2 className="text-lg font-medium text-[var(--secondary)] mb-2">
                     No notifications
                 </h2>
@@ -74,18 +75,18 @@ function InboxSidebar() {
                     ))}
                 </div>
                 <div className="flex gap-1">
-                    <button className={cn(
+                    <Button className={cn(
                         "p-1 rounded",
-                        "hover:bg-amber-100/10"
+                        "hover:bg-[var(--secondary-hover)]/20"
                     )}>
                         <Search width={16} height={16} className="text-[var(--secondary)] opacity-60" />
-                    </button>
-                    <button className={cn(
+                    </Button>
+                    <Button className={cn(
                         "p-1 rounded",
-                        "hover:bg-amber-100/10"
+                        "hover:bg-[var(--secondary-hover)]/20"
                     )}>
                         <Filter width={16} height={16} className="text-[var(--secondary)] opacity-60" />
-                    </button>
+                    </Button>
                 </div>
             </div>
 

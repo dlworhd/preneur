@@ -1,5 +1,11 @@
 import { cn } from "@/lib/utils";
-import React, { useState, useEffect, useRef } from "react";
+import React, {
+    useState,
+    useEffect,
+    useRef,
+    useMemo,
+    useCallback,
+} from "react";
 import {
     Calendar as CalendarIcon,
     Grid3X3,
@@ -8,11 +14,15 @@ import {
     Trash2,
     Clock,
     MapPin,
+    Sparkles,
 } from "lucide-react";
 
 import Button from "@/components/common/Button";
 import { Select } from "@/components/common/Select";
 import Modal from "@/components/common/Modal";
+import Popover from "@/components/common/Popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import { parseScheduleRequest } from "@/lib/gemini";
 
 // 색상 상수
 const COLORS = [
@@ -50,6 +60,21 @@ interface MonthData {
     days: CalendarDay[];
 }
 
+// 새로운 타입 정의 추가
+interface EventTemplate {
+    title: string;
+    description?: string;
+    location?: string;
+    originalStartDate: string;
+    originalEndDate: string;
+    recurrence?: {
+        type: 'daily' | 'weekly' | 'monthly' | 'yearly';
+        interval: number;
+        daysOfWeek?: number[];
+        count: number;
+    };
+}
+
 export default function Calendar() {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [events, setEvents] = useState<Event[]>([
@@ -85,17 +110,11 @@ export default function Calendar() {
     // 월 단위 스크롤 상태
     const [months, setMonths] = useState<MonthData[]>([]);
     const [currentMonthIndex, setCurrentMonthIndex] = useState(0);
-    const scrollContainerRef = useRef<HTMLDivElement>(null);
-    
+
     // 애니메이션 상태
-    const [isTransitioning, setIsTransitioning] = useState(false);
-    const [transitionDirection, setTransitionDirection] = useState<'next' | 'prev' | null>(null);
 
     // 기타 상태
     const [isCreatingEvent, setIsCreatingEvent] = useState(false);
-    const [isDragging, setIsDragging] = useState(false);
-    const [dragStart, setDragStart] = useState<Date | null>(null);
-    const [dragEnd, setDragEnd] = useState<Date | null>(null);
     const [newEvent, setNewEvent] = useState({
         title: "",
         description: "",
@@ -107,12 +126,38 @@ export default function Calendar() {
     const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [isViewingEvents, setIsViewingEvents] = useState(false);
-    
-    // 드래그 자동 스크롤 상태
-    const [dragEdgeTimer, setDragEdgeTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
-    const [dragEdgeDirection, setDragEdgeDirection] = useState<'prev' | 'next' | null>(null);
-    
+    const [popoverAnchor, setPopoverAnchor] = useState<HTMLElement | null>(
+        null
+    );
+    const [customColor, setCustomColor] = useState("#3b82f6");
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [datePickerMode, setDatePickerMode] = useState<"start" | "end">(
+        "start"
+    );
+    const [startDate, setStartDate] = useState<Date | null>(null);
+    const [endDate, setEndDate] = useState<Date | null>(null);
 
+    // 드래그 자동 스크롤 상태
+    const [dragEdgeTimer, setDragEdgeTimer] = useState<ReturnType<
+        typeof setTimeout
+    > | null>(null);
+    const [dragEdgeDirection, setDragEdgeDirection] = useState<
+        "prev" | "next" | null
+    >(null);
+
+    const [aiInput, setAiInput] = useState("");
+    const [isProcessingAI, setIsProcessingAI] = useState(false);
+    const [showAIPopover, setShowAIPopover] = useState(false);
+    const [aiButtonRef, setAiButtonRef] = useState<HTMLElement | null>(null);
+
+    // 반복 일정 관련 상태 추가
+    const [isRecurring, setIsRecurring] = useState(false);
+    const [recurrenceType, setRecurrenceType] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('weekly');
+    const [recurrenceInterval, setRecurrenceInterval] = useState(1);
+    const [selectedDaysOfWeek, setSelectedDaysOfWeek] = useState<number[]>([]);
+    const [recurrenceCount, setRecurrenceCount] = useState(8);
+    const [recurrenceEndDate, setRecurrenceEndDate] = useState<Date | null>(null);
+    const [useEndDate, setUseEndDate] = useState(false);
 
     const years = Array.from(
         { length: 10 },
@@ -134,11 +179,16 @@ export default function Calendar() {
     ];
     const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+    // 오늘 날짜를 메모화 (성능 최적화)
+    const todayString = useMemo(() => {
+        const today = new Date();
+        return today.toDateString();
+    }, []);
+
     // 월 데이터 생성 함수
     const generateMonthData = React.useCallback(
         (year: number, month: number): MonthData => {
             const days: CalendarDay[] = [];
-            const today = new Date();
 
             // 해당 월의 첫 번째 날과 마지막 날
             const firstDay = new Date(year, month, 1);
@@ -148,8 +198,7 @@ export default function Calendar() {
             const firstDayOfWeek = firstDay.getDay();
             for (let i = firstDayOfWeek - 1; i >= 0; i--) {
                 const prevDate = new Date(year, month, -i);
-                const isToday =
-                    prevDate.toDateString() === today.toDateString();
+                const isToday = prevDate.toDateString() === todayString;
                 const dayEvents = events.filter((event) => {
                     const eventStart = new Date(
                         event.startDate.getFullYear(),
@@ -180,7 +229,7 @@ export default function Calendar() {
             // 해당 월의 날들
             for (let day = 1; day <= lastDay.getDate(); day++) {
                 const date = new Date(year, month, day);
-                const isToday = date.toDateString() === today.toDateString();
+                const isToday = date.toDateString() === todayString;
                 const dayEvents = events.filter((event) => {
                     const eventStart = new Date(
                         event.startDate.getFullYear(),
@@ -213,8 +262,7 @@ export default function Calendar() {
             let nextDay = 1;
             while (days.length < 42) {
                 const nextDate = new Date(year, month + 1, nextDay);
-                const isToday =
-                    nextDate.toDateString() === today.toDateString();
+                const isToday = nextDate.toDateString() === todayString;
                 const dayEvents = events.filter((event) => {
                     const eventStart = new Date(
                         event.startDate.getFullYear(),
@@ -246,7 +294,7 @@ export default function Calendar() {
 
             return { year, month, days };
         },
-        [events]
+        [events, todayString]
     );
 
     // 초기 월 데이터 생성 (현재 월 + 이전/다음 월)
@@ -267,7 +315,7 @@ export default function Calendar() {
         setCurrentDate(today);
     }, []);
 
-    // 월 변경 시 currentDate 업데이트
+    // 월 변경 시 currentDate 업데이트 및 인접 월 미리 로드
     useEffect(() => {
         if (
             months.length > 0 &&
@@ -276,168 +324,80 @@ export default function Calendar() {
         ) {
             const currentMonth = months[currentMonthIndex];
             setCurrentDate(new Date(currentMonth.year, currentMonth.month, 1));
-        }
-    }, [currentMonthIndex, months]);
 
-    // 이벤트가 변경될 때 모든 월 데이터 새로고침
+            // 인접 월들도 미리 업데이트 (성능 최적화)
+            const indicesToUpdate = [
+                currentMonthIndex - 1,
+                currentMonthIndex,
+                currentMonthIndex + 1,
+            ].filter((index) => index >= 0 && index < months.length);
+
+            setMonths((prev) =>
+                prev.map((month, index) =>
+                    indicesToUpdate.includes(index)
+                        ? generateMonthData(month.year, month.month)
+                        : month
+                )
+            );
+        }
+    }, [currentMonthIndex, months.length, generateMonthData]);
+
+    // 이벤트가 변경될 때 현재 보이는 월만 새로고침 (성능 최적화)
+    const refreshCurrentMonth = useCallback(() => {
+        if (months.length > 0 && currentMonthIndex >= 0) {
+            const currentMonth = months[currentMonthIndex];
+            const updatedMonthData = generateMonthData(
+                currentMonth.year,
+                currentMonth.month
+            );
+            setMonths((prev) =>
+                prev.map((month, index) =>
+                    index === currentMonthIndex ? updatedMonthData : month
+                )
+            );
+        }
+    }, [months, currentMonthIndex, generateMonthData]);
+
+    // 이벤트 상태가 변경될 때마다 월 데이터 새로고침
     useEffect(() => {
         if (months.length > 0) {
-            const updatedMonths = months.map((month) =>
-                generateMonthData(month.year, month.month)
-            );
-            setMonths(updatedMonths);
+            refreshCurrentMonth();
         }
-    }, [events, generateMonthData]);
-
-    // 스크롤 이벤트 처리 (월 단위 스냅)
-    useEffect(() => {
-        if (!scrollContainerRef.current) return;
-
-        let lastScrollTime = 0;
-        let isScrolling = false;
-
-        const handleScroll = (e: WheelEvent) => {
-            e.preventDefault();
-
-            // 이미 스크롤 중이거나 애니메이션 중이면 무시
-            if (isScrolling || isTransitioning) return;
-
-            const now = Date.now();
-            // 기본 디바운싱
-            if (now - lastScrollTime < 100) return;
-
-            // 스크롤 방향만 감지 (크기는 무시)
-            const delta = e.deltaY;
-            const threshold = 5; // 최소 스크롤 임계값 (더 작게)
-
-            if (Math.abs(delta) < threshold) return;
-
-            // 스크롤 시작 - 방향만 확인하고 항상 1월씩만 이동
-            isScrolling = true;
-            lastScrollTime = now;
-
-            // 스크롤 방향에 따라 무조건 1월씩만 이동 (애니메이션 적용)
-            if (delta > 0) {
-                // 아래로 스크롤 - 다음 달로 1월만 이동
-                if (currentMonthIndex < months.length - 1) {
-                    setIsTransitioning(true);
-                    setTransitionDirection('next');
-                    
-                    setTimeout(() => {
-                        setCurrentMonthIndex((prev) => prev + 1);
-                        setTimeout(() => {
-                            setIsTransitioning(false);
-                            setTransitionDirection(null);
-                        }, 300);
-                    }, 150);
-                }
-            } else {
-                // 위로 스크롤 - 이전 달로 1월만 이동
-                if (currentMonthIndex > 0) {
-                    setIsTransitioning(true);
-                    setTransitionDirection('prev');
-                    
-                    setTimeout(() => {
-                        setCurrentMonthIndex((prev) => prev - 1);
-                        setTimeout(() => {
-                            setIsTransitioning(false);
-                            setTransitionDirection(null);
-                        }, 300);
-                    }, 150);
-                }
-            }
-
-            // 1100ms 후 스크롤 다시 활성화 (애니메이션 시간 + 여유시간)
-            setTimeout(() => {
-                isScrolling = false;
-            }, 1100);
-        };
-
-        const container = scrollContainerRef.current;
-        container.addEventListener("wheel", handleScroll, { passive: false });
-
-        return () => {
-            container.removeEventListener("wheel", handleScroll);
-        };
-    }, [months.length]);
-
-    // 키보드 이벤트 처리 (화살표 키로 월 이동)
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            // 애니메이션 중이면 무시
-            if (isTransitioning) return;
-            
-            if (e.key === "ArrowLeft") {
-                e.preventDefault();
-                if (currentMonthIndex > 0) {
-                    setIsTransitioning(true);
-                    setTransitionDirection('prev');
-                    
-                    setTimeout(() => {
-                        setCurrentMonthIndex((prev) => prev - 1);
-                        setTimeout(() => {
-                            setIsTransitioning(false);
-                            setTransitionDirection(null);
-                        }, 300);
-                    }, 150);
-                }
-            } else if (e.key === "ArrowRight") {
-                e.preventDefault();
-                if (currentMonthIndex < months.length - 1) {
-                    setIsTransitioning(true);
-                    setTransitionDirection('next');
-                    
-                    setTimeout(() => {
-                        setCurrentMonthIndex((prev) => prev + 1);
-                        setTimeout(() => {
-                            setIsTransitioning(false);
-                            setTransitionDirection(null);
-                        }, 300);
-                    }, 150);
-                }
-            }
-        };
-
-        document.addEventListener("keydown", handleKeyDown);
-
-        return () => {
-            document.removeEventListener("keydown", handleKeyDown);
-        };
-    }, [months.length, currentMonthIndex, isTransitioning]);
+    }, [events]);
 
     // 월 추가 (필요시)
     useEffect(() => {
         if (currentMonthIndex <= 1 && months.length > 0) {
             // 앞쪽 2개 월에 도달하면 이전 월들 추가
-                const firstMonth = months[0];
+            const firstMonth = months[0];
             const newMonths: MonthData[] = [];
 
-                for (let i = 3; i > 0; i--) {
+            for (let i = 3; i > 0; i--) {
                 const date = new Date(firstMonth.year, firstMonth.month - i, 1);
                 newMonths.push(
                     generateMonthData(date.getFullYear(), date.getMonth())
                 );
-                }
+            }
 
-                setMonths((prev) => [...newMonths, ...prev]);
+            setMonths((prev) => [...newMonths, ...prev]);
             setCurrentMonthIndex((prev) => prev + newMonths.length);
         } else if (
             currentMonthIndex >= months.length - 2 &&
-                months.length > 0
-            ) {
+            months.length > 0
+        ) {
             // 뒤쪽 2개 월에 도달하면 다음 월들 추가
-                const lastMonth = months[months.length - 1];
+            const lastMonth = months[months.length - 1];
             const newMonths: MonthData[] = [];
 
-                for (let i = 1; i <= 3; i++) {
+            for (let i = 1; i <= 3; i++) {
                 const date = new Date(lastMonth.year, lastMonth.month + i, 1);
                 newMonths.push(
                     generateMonthData(date.getFullYear(), date.getMonth())
                 );
-                }
-
-                setMonths((prev) => [...prev, ...newMonths]);
             }
+
+            setMonths((prev) => [...prev, ...newMonths]);
+        }
     }, [currentMonthIndex, months.length, generateMonthData]); // generateMonthData 의존성 추가
 
     // 핸들러 함수들
@@ -452,30 +412,10 @@ export default function Calendar() {
     };
 
     const changeMonth = (direction: "prev" | "next") => {
-        if (isTransitioning) return; // 애니메이션 중에는 월 변경 방지
-        
         if (direction === "next" && currentMonthIndex < months.length - 1) {
-            setIsTransitioning(true);
-            setTransitionDirection('next');
-            
-            setTimeout(() => {
-                setCurrentMonthIndex((prev) => prev + 1);
-                setTimeout(() => {
-                    setIsTransitioning(false);
-                    setTransitionDirection(null);
-                }, 300); // 애니메이션 시간과 동일
-            }, 150); // 절반 시간에 실제 변경
+            setCurrentMonthIndex((prev) => prev + 1);
         } else if (direction === "prev" && currentMonthIndex > 0) {
-            setIsTransitioning(true);
-            setTransitionDirection('prev');
-            
-            setTimeout(() => {
-                setCurrentMonthIndex((prev) => prev - 1);
-                setTimeout(() => {
-                    setIsTransitioning(false);
-                    setTransitionDirection(null);
-                }, 300); // 애니메이션 시간과 동일
-            }, 150); // 절반 시간에 실제 변경
+            setCurrentMonthIndex((prev) => prev - 1);
         }
     };
 
@@ -485,8 +425,6 @@ export default function Calendar() {
     };
 
     const goToMonth = (targetDate: Date) => {
-        if (isTransitioning) return; // 애니메이션 중에는 월 변경 방지
-        
         const targetYear = targetDate.getFullYear();
         const targetMonth = targetDate.getMonth();
 
@@ -496,22 +434,10 @@ export default function Calendar() {
         );
 
         if (monthIndex !== -1) {
-            // 현재 월과 다른 경우에만 애니메이션 적용
-            if (monthIndex !== currentMonthIndex) {
-                const direction = monthIndex > currentMonthIndex ? 'next' : 'prev';
-                setIsTransitioning(true);
-                setTransitionDirection(direction);
-                
-                setTimeout(() => {
-                    setCurrentMonthIndex(monthIndex);
-                    setTimeout(() => {
-                        setIsTransitioning(false);
-                        setTransitionDirection(null);
-                    }, 300);
-                }, 150);
-            }
+            // 해당 월이 이미 로드되어 있으면 바로 이동
+            setCurrentMonthIndex(monthIndex);
         } else {
-            // 해당 월이 없으면 새로 생성 (애니메이션 없이)
+            // 해당 월이 없으면 새로 생성
             const newMonths: MonthData[] = [];
 
             // 타겟 월 기준으로 이전/현재/다음 월 생성
@@ -528,145 +454,16 @@ export default function Calendar() {
     };
 
     // 날짜 클릭 핸들러
-    const handleDateClick = (date: Date, hasEvents: boolean) => {
+    const handleDateClick = (
+        date: Date,
+        hasEvents: boolean,
+        event: React.MouseEvent
+    ) => {
         if (hasEvents) {
             setSelectedDate(date);
             setIsViewingEvents(true);
-        }
-    };
-
-    // 드래그 핸들러들
-    const handleMouseDown = (date: Date, e: React.MouseEvent) => {
-        e.preventDefault();
-        setDragStart(date);
-        setDragEnd(date);
-        setIsDragging(true);
-    };
-
-    const handleMouseEnter = (date: Date, e: React.MouseEvent) => {
-        if (isDragging && dragStart) {
-            setDragEnd(date);
-            
-            // 드래그 자동 스크롤 처리
-            const rect = e.currentTarget.getBoundingClientRect();
-            const containerRect = scrollContainerRef.current?.getBoundingClientRect();
-            
-            if (containerRect) {
-                const topEdge = containerRect.top + 50; // 위쪽 가장자리 50px 영역
-                const bottomEdge = containerRect.bottom - 50; // 아래쪽 가장자리 50px 영역
-                const mouseY = e.clientY;
-                
-                // 기존 타이머 클리어
-                if (dragEdgeTimer) {
-                    clearTimeout(dragEdgeTimer);
-                    setDragEdgeTimer(null);
-                }
-                
-                if (mouseY < topEdge) {
-                    // 위쪽 가장자리 - 이전 월로 이동
-                    setDragEdgeDirection('prev');
-                    const timer = setTimeout(() => {
-                        if (currentMonthIndex > 0) {
-                            setIsTransitioning(true);
-                            setTransitionDirection('prev');
-                            
-                            setTimeout(() => {
-                                setCurrentMonthIndex(prev => prev - 1);
-                                setTimeout(() => {
-                                    setIsTransitioning(false);
-                                    setTransitionDirection(null);
-                                }, 300);
-                            }, 150);
-                        }
-                        setDragEdgeTimer(null);
-                        setDragEdgeDirection(null);
-                    }, 1000); // 1초 후 이동
-                    setDragEdgeTimer(timer);
-                } else if (mouseY > bottomEdge) {
-                    // 아래쪽 가장자리 - 다음 월로 이동
-                    setDragEdgeDirection('next');
-                    const timer = setTimeout(() => {
-                        if (currentMonthIndex < months.length - 1) {
-                            setIsTransitioning(true);
-                            setTransitionDirection('next');
-                            
-                            setTimeout(() => {
-                                setCurrentMonthIndex(prev => prev + 1);
-                                setTimeout(() => {
-                                    setIsTransitioning(false);
-                                    setTransitionDirection(null);
-                                }, 300);
-                            }, 150);
-                        }
-                        setDragEdgeTimer(null);
-                        setDragEdgeDirection(null);
-                    }, 1000); // 1초 후 이동
-                    setDragEdgeTimer(timer);
-                } else {
-                    // 가장자리가 아닌 곳 - 타이머 클리어
-                    setDragEdgeDirection(null);
-                }
-            }
-        }
-    };
-
-    const handleMouseUp = (
-        date: Date,
-        hasEvents: boolean,
-        e: React.MouseEvent
-    ) => {
-        e.preventDefault();
-
-        // 드래그가 시작되지 않았거나 같은 위치에서 끝났을 때
-        if (
-            !isDragging ||
-            !dragStart ||
-            !dragEnd ||
-            (dragStart.getTime() === dragEnd.getTime() &&
-                dragStart.getTime() === date.getTime())
-        ) {
-            setIsDragging(false);
-            setDragStart(null);
-            setDragEnd(null);
-
-            if (hasEvents) {
-                // 일정이 있는 경우 일정 보기 모달 열기
-                handleDateClick(date, hasEvents);
-            } else {
-                // 일정이 없는 경우 새 일정 생성 모달 열기
-                const formatDateToLocal = (date: Date) => {
-                    const year = date.getFullYear();
-                    const month = String(date.getMonth() + 1).padStart(2, "0");
-                    const day = String(date.getDate()).padStart(2, "0");
-                    return `${year}-${month}-${day}`;
-                };
-
-                setCustomStartDate(formatDateToLocal(date));
-                setCustomEndDate(formatDateToLocal(date));
-            setNewEvent({
-                title: "",
-                description: "",
-                location: "",
-                color: COLORS[0],
-            });
-                setIsCreatingEvent(true);
-            }
-            return;
-        }
-
-        // 실제 드래그가 발생한 경우에만 일정 생성
-        if (isDragging && dragStart && dragEnd) {
-            setNewEvent({
-                title: "",
-                description: "",
-                location: "",
-                color: COLORS[0],
-            });
-
-            const start = dragStart < dragEnd ? dragStart : dragEnd;
-            const end = dragStart < dragEnd ? dragEnd : dragStart;
-
-            // 로컬 시간대로 날짜 문자열 생성 (시간대 문제 해결)
+        } else {
+            // 일정이 없는 경우 새 일정 생성 팝오버 열기
             const formatDateToLocal = (date: Date) => {
                 const year = date.getFullYear();
                 const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -674,126 +471,298 @@ export default function Calendar() {
                 return `${year}-${month}-${day}`;
             };
 
-            setCustomStartDate(formatDateToLocal(start));
-            setCustomEndDate(formatDateToLocal(end));
+            setCustomStartDate(formatDateToLocal(date));
+            setCustomEndDate(formatDateToLocal(date));
+            setStartDate(date);
+            setEndDate(date);
+            setNewEvent({
+                title: "",
+                description: "",
+                location: "",
+                color: COLORS[0],
+            });
+            setPopoverAnchor(event.currentTarget as HTMLElement);
             setIsCreatingEvent(true);
         }
-        setIsDragging(false);
-        setDragStart(null);
-        setDragEnd(null);
-        
-        // 드래그 자동 스크롤 타이머 정리
-        if (dragEdgeTimer) {
-            clearTimeout(dragEdgeTimer);
-            setDragEdgeTimer(null);
-        }
-        setDragEdgeDirection(null);
     };
 
     // 일정 관련 함수들
     const handleCreateEvent = () => {
         if (!newEvent.title.trim()) return;
 
-        let startDate: Date;
-        let endDate: Date;
-
-        if (customStartDate && customEndDate) {
-            startDate = new Date(customStartDate);
-            endDate = new Date(customEndDate);
-        } else if (dragStart && dragEnd) {
-            startDate = dragStart < dragEnd ? dragStart : dragEnd;
-            endDate = dragStart < dragEnd ? dragEnd : dragStart;
-        } else {
+        if (!startDate || !endDate) {
             return;
         }
 
-        if (startDate > endDate) {
-            [startDate, endDate] = [endDate, startDate];
+        let eventStartDate = startDate;
+        let eventEndDate = endDate;
+
+        if (eventStartDate > eventEndDate) {
+            [eventStartDate, eventEndDate] = [eventEndDate, eventStartDate];
         }
 
-        const event: Event = {
-            id: Date.now().toString(),
-            title: newEvent.title,
-            description: newEvent.description,
-            startDate,
-            endDate,
-            color: newEvent.color,
-            location: newEvent.location,
-        };
+        if (isRecurring) {
+            // 반복 일정 생성
+            const template: EventTemplate = {
+                title: newEvent.title,
+                description: newEvent.description,
+                location: newEvent.location,
+                originalStartDate: eventStartDate.toISOString().split('T')[0],
+                originalEndDate: useEndDate && recurrenceEndDate 
+                    ? recurrenceEndDate.toISOString().split('T')[0] 
+                    : eventEndDate.toISOString().split('T')[0],
+                recurrence: {
+                    type: recurrenceType,
+                    interval: recurrenceInterval,
+                    daysOfWeek: recurrenceType === 'weekly' && selectedDaysOfWeek.length > 0 ? selectedDaysOfWeek : undefined,
+                    count: useEndDate ? 100 : recurrenceCount // 종료일 사용 시 충분히 큰 수
+                }
+            };
 
-        setEvents((prev) => [...prev, event]);
+            const dates = generateRecurrenceDates(template);
+            console.log('반복 일정 템플릿:', template);
+            console.log('생성된 날짜들:', dates);
+            
+            const newEvents = dates.map(date => ({
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                title: newEvent.title,
+                description: newEvent.description,
+                startDate: date,
+                endDate: date,
+                color: newEvent.color,
+                location: newEvent.location,
+            }));
+
+            setEvents((prev) => [...prev, ...newEvents]);
+
+            console.log(`${newEvent.title} - ${dates.length}개의 반복 일정이 생성되었습니다.`);
+        } else {
+            // 단일 일정 생성
+            const event: Event = {
+                id: Date.now().toString(),
+                title: newEvent.title,
+                description: newEvent.description,
+                startDate: eventStartDate,
+                endDate: eventEndDate,
+                color: newEvent.color,
+                location: newEvent.location,
+            };
+
+            setEvents((prev) => [...prev, event]);
+        }
+
+        // 상태 초기화
         setIsCreatingEvent(false);
-        setDragStart(null);
-        setDragEnd(null);
         setCustomStartDate("");
         setCustomEndDate("");
+        setStartDate(null);
+        setEndDate(null);
+        setPopoverAnchor(null);
+        setShowDatePicker(false);
+        
+        // 반복 일정 상태 초기화
+        setIsRecurring(false);
+        setRecurrenceType('weekly');
+        setRecurrenceInterval(1);
+        setSelectedDaysOfWeek([]);
+        setRecurrenceCount(8);
+        setRecurrenceEndDate(null);
+        setUseEndDate(false);
 
-        // 현재 월 데이터를 새로고침하여 새 이벤트 반영
-        if (months.length > 0 && currentMonthIndex >= 0) {
-            const currentMonth = months[currentMonthIndex];
-            const updatedMonthData = generateMonthData(
-                currentMonth.year,
-                currentMonth.month
-            );
-            setMonths((prev) =>
-                prev.map((month, index) =>
-                    index === currentMonthIndex ? updatedMonthData : month
-                )
-            );
-        }
+
     };
 
     const handleDeleteEvent = (eventId: string) => {
         setEvents((prev) => prev.filter((event) => event.id !== eventId));
-
-        // 현재 월 데이터를 새로고침하여 삭제된 이벤트 반영
-        if (months.length > 0 && currentMonthIndex >= 0) {
-            const currentMonth = months[currentMonthIndex];
-            const updatedMonthData = generateMonthData(
-                currentMonth.year,
-                currentMonth.month
-            );
-            setMonths((prev) =>
-                prev.map((month, index) =>
-                    index === currentMonthIndex ? updatedMonthData : month
-                )
-            );
-        }
     };
 
-    // 드래그 관련 유틸리티 함수들
-    const isInDragRange = (date: Date): boolean => {
-        if (!dragStart || !dragEnd) return false;
-        const start = dragStart < dragEnd ? dragStart : dragEnd;
-        const end = dragStart < dragEnd ? dragEnd : dragStart;
-        return date >= start && date <= end;
+    const handleEventClick = (event: Event, e: React.MouseEvent) => {
+        e.stopPropagation(); // 날짜 클릭 이벤트 전파 방지
+        setSelectedDate(event.startDate);
+        setIsViewingEvents(true);
     };
-
-    const isDragStart = (date: Date): boolean => {
-        return dragStart?.getTime() === date.getTime();
-    };
-
-    const isDragEnd = (date: Date): boolean => {
-        return dragEnd ? dragEnd.getTime() === date.getTime() : false;
-    };
-
-    const getDragDuration = (): number => {
-        if (!dragStart || !dragEnd) return 0;
-        const diffTime = Math.abs(dragEnd.getTime() - dragStart.getTime());
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    };
-
-
 
     const currentMonthData = months[currentMonthIndex];
+
+    // 반복 일정 날짜 생성 함수
+    const generateRecurrenceDates = (template: EventTemplate): Date[] => {
+        const dates: Date[] = [];
+        const originalStartDate = new Date(template.originalStartDate);
+        const originalEndDate = new Date(template.originalEndDate);
+        const recurrence = template.recurrence;
+        
+        if (!recurrence) {
+            return [originalStartDate];
+        }
+
+        console.log(`Generating dates from ${originalStartDate.toISOString().split('T')[0]} to ${originalEndDate.toISOString().split('T')[0]}`);
+        console.log(`Recurrence:`, recurrence);
+
+        switch (recurrence.type) {
+            case 'daily':
+                let currentDate = new Date(originalStartDate);
+                for (let i = 0; i < recurrence.count; i++) {
+                    if (currentDate > originalEndDate) break;
+                    dates.push(new Date(currentDate));
+                    currentDate.setDate(currentDate.getDate() + recurrence.interval);
+                }
+                break;
+                
+            case 'weekly':
+                if (recurrence.daysOfWeek && recurrence.daysOfWeek.length > 0) {
+                    // 특정 요일들에 반복
+                    let currentWeekStart = new Date(originalStartDate);
+                    currentWeekStart.setDate(originalStartDate.getDate() - originalStartDate.getDay()); // 해당 주의 일요일
+                    
+                    let weekCount = 0;
+                    let totalAdded = 0;
+                    
+                    while (weekCount < recurrence.count && currentWeekStart <= originalEndDate) {
+                        // 각 요일에 대해 확인
+                        recurrence.daysOfWeek.forEach(dayOfWeek => {
+                            const targetDate = new Date(currentWeekStart);
+                            targetDate.setDate(currentWeekStart.getDate() + dayOfWeek);
+                            
+                            // 시작일 이후이고 종료일 이전인 경우만 추가
+                            if (targetDate >= originalStartDate && targetDate <= originalEndDate) {
+                                dates.push(new Date(targetDate));
+                                totalAdded++;
+                                console.log(`Added: ${targetDate.toISOString().split('T')[0]} (${['일', '월', '화', '수', '목', '금', '토'][dayOfWeek]}요일)`);
+                            }
+                        });
+                        
+                        // 다음 주로 이동 (interval 적용)
+                        currentWeekStart.setDate(currentWeekStart.getDate() + (7 * recurrence.interval));
+                        weekCount++;
+                        
+                        // 무한루프 방지
+                        if (weekCount > 100) {
+                            console.warn('주 수가 100을 초과하여 중단합니다.');
+                            break;
+                        }
+                    }
+                    
+                    console.log(`Total weeks processed: ${weekCount}, Total dates added: ${totalAdded}`);
+                } else {
+                    // 매주 같은 요일 (시작일의 요일)
+                    let currentDate = new Date(originalStartDate);
+                    for (let i = 0; i < recurrence.count; i++) {
+                        if (currentDate > originalEndDate) break;
+                        dates.push(new Date(currentDate));
+                        currentDate.setDate(currentDate.getDate() + (7 * recurrence.interval));
+                    }
+                }
+                break;
+                
+            case 'monthly':
+                let monthlyDate = new Date(originalStartDate);
+                for (let i = 0; i < recurrence.count; i++) {
+                    if (monthlyDate > originalEndDate) break;
+                    dates.push(new Date(monthlyDate));
+                    monthlyDate.setMonth(monthlyDate.getMonth() + recurrence.interval);
+                }
+                break;
+                
+            case 'yearly':
+                let yearlyDate = new Date(originalStartDate);
+                for (let i = 0; i < recurrence.count; i++) {
+                    if (yearlyDate > originalEndDate) break;
+                    dates.push(new Date(yearlyDate));
+                    yearlyDate.setFullYear(yearlyDate.getFullYear() + recurrence.interval);
+                }
+                break;
+        }
+        
+        const sortedDates = dates.sort((a, b) => a.getTime() - b.getTime());
+        console.log(`Generated ${sortedDates.length} dates total:`);
+        console.log('First 5:', sortedDates.slice(0, 5).map(d => d.toISOString().split('T')[0]));
+        console.log('Last 5:', sortedDates.slice(-5).map(d => d.toISOString().split('T')[0]));
+        
+        return sortedDates;
+    };
+
+    const handleAIScheduleRequest = async () => {
+        if (!aiInput.trim()) return;
+        
+        setIsProcessingAI(true);
+        try {
+            const result = await parseScheduleRequest(aiInput);
+            
+            // 새로운 eventTemplate 형식 처리
+            if (result.eventTemplate) {
+                const template: EventTemplate = result.eventTemplate;
+                
+                if (template.recurrence) {
+                    // 반복 일정 - 날짜들을 계산해서 개별 이벤트 생성
+                    const dates = generateRecurrenceDates(template);
+                    
+                    dates.forEach(date => {
+                        const newEvent: Event = {
+                            id: Math.random().toString(36).substr(2, 9),
+                            title: template.title,
+                            description: template.description || "",
+                            startDate: date,
+                            endDate: date,
+                            color: "#3b82f6",
+                            location: template.location,
+                        };
+                        setEvents(prev => [...prev, newEvent]);
+                    });
+                    
+                    console.log(`${template.title} - ${dates.length}개의 반복 일정이 생성되었습니다.`);
+                } else {
+                    // 단발성 일정
+                    const newEvent: Event = {
+                        id: Math.random().toString(36).substr(2, 9),
+                        title: template.title,
+                        description: template.description || "",
+                        startDate: new Date(template.originalStartDate),
+                        endDate: new Date(template.originalEndDate),
+                        color: "#3b82f6",
+                        location: template.location,
+                    };
+                    setEvents(prev => [...prev, newEvent]);
+                    console.log(`${template.title} - 단발성 일정이 생성되었습니다.`);
+                }
+            }
+            // 기존 events 배열 형식도 지원 (하위 호환성)
+            else if (result.events && Array.isArray(result.events)) {
+                result.events.forEach((event: any) => {
+                    const newEvent: Event = {
+                        id: Math.random().toString(36).substr(2, 9),
+                        title: event.title,
+                        description: event.description || "",
+                        startDate: new Date(event.startDate),
+                        endDate: new Date(event.endDate),
+                        color: "#3b82f6",
+                        location: event.location,
+                    };
+                    setEvents(prev => [...prev, newEvent]);
+                });
+                console.log(`${result.events.length}개의 일정이 생성되었습니다.`);
+            } else {
+                throw new Error("올바르지 않은 응답 형식입니다.");
+            }
+            
+            setAiInput("");
+            setShowAIPopover(false);
+            
+        } catch (error) {
+            console.error('AI 일정 생성 실패:', error);
+            // TODO: 에러 토스트 표시
+            alert('일정 생성에 실패했습니다. 다시 시도해주세요.');
+        } finally {
+            setIsProcessingAI(false);
+        }
+    };
 
     return (
         <div className={cn("flex flex-col h-full")}>
             {/* 헤더 */}
             <div
                 className={cn(
-                    "border-b border-[var(--container-border)]",
-                    "flex items-center justify-between flex-[0.5] px-2"
+                    "bg-[var(--background)] border-b border-[var(--container-border)]",
+                    "flex items-center justify-between px-4 h-12"
                 )}
             >
                 <div className="flex items-center gap-1">
@@ -809,7 +778,7 @@ export default function Calendar() {
                                     .toString()}
                             >
                                 <Select.Trigger>
-                                    <span className="text-sm font-medium text-[var(--secondary)] cursor-pointer hover:text-[var(--primary)] px-2 py-1 rounded transition-colors w-12 inline-block text-center">
+                                    <span className="m font-medium text-[var(--secondary)] cursor-pointer hover:text-[var(--primary)] px-2 py-1 rounded transition-colors w-12 inline-block enter">
                                         <Select.Value />
                                     </span>
                                 </Select.Trigger>
@@ -838,7 +807,7 @@ export default function Calendar() {
                                 }
                             >
                                 <Select.Trigger>
-                                    <span className="text-sm font-medium text-[var(--secondary)] cursor-pointer hover:text-[var(--primary)] px-2 py-1 rounded transition-colors w-12 inline-block text-center">
+                                    <span className="m font-medium text-[var(--secondary)] cursor-pointer hover:text-[var(--primary)] px-2 py-1 rounded transition-colors w-12 inline-block enter">
                                         <Select.Value />
                                     </span>
                                 </Select.Trigger>
@@ -859,9 +828,9 @@ export default function Calendar() {
                         <Button
                             onClick={() => setViewMode("calendar")}
                             className={cn(
-                                "p-2",
+                                "p-2 rounded-md",
                                 viewMode === "calendar"
-                                    ? "bg-[var(--primary)] text-white"
+                                    ? "bg-[var(--primary)] "
                                     : "bg-transparent"
                             )}
                         >
@@ -872,99 +841,42 @@ export default function Calendar() {
                             className={cn(
                                 "p-2",
                                 viewMode === "list"
-                                    ? "bg-[var(--primary)] text-white"
+                                    ? "bg-[var(--primary)] "
                                     : "bg-transparent"
                             )}
                         >
                             <List width={16} height={16} />
                         </Button>
                     </div>
-
-                    <Button
-                        onClick={() => {
-                            setNewEvent({
-                                title: "",
-                                description: "",
-                                location: "",
-                                color: COLORS[0],
-                            });
-                            setCustomStartDate("");
-                            setCustomEndDate("");
-                            setDragStart(null);
-                            setDragEnd(null);
-                            setIsCreatingEvent(true);
-                        }}
-                    >
-                        <div className="flex gap-2 items-center">
-                            <Plus width={20} height={20} />
-                            <span>New Event</span>
-                        </div>
-                    </Button>
                 </div>
-
-                {isDragging && dragStart && dragEnd && (
-                    <div className="absolute top-full left-0 right-0 p-2 bg-[var(--background)] border-b border-[var(--container-border)]">
-                        <span className="text-xs text-[var(--primary)] ml-2">
-                            선택:{" "}
-                            {dragStart.toLocaleDateString("ko-KR", {
-                                month: "short",
-                                day: "numeric",
-                            })}{" "}
-                            -{" "}
-                            {dragEnd.toLocaleDateString("ko-KR", {
-                                month: "short",
-                                day: "numeric",
-                            })}{" "}
-                            ({getDragDuration()}일)
-                        </span>
-                    </div>
-                )}
             </div>
 
             {/* 월 단위 캘린더 */}
             <div
-                ref={scrollContainerRef}
                 className={cn(
                     "bg-[var(--background)] relative",
-                    "flex-[8] h-full overflow-hidden"
+                    "flex-1 overflow-hidden"
                 )}
             >
-                {/* 드래그 자동 스크롤 가장자리 하이라이트 */}
-                {isDragging && dragEdgeDirection && (
-                    <>
-                        {dragEdgeDirection === 'prev' && (
-                            <div className="absolute left-0 right-0 top-0 h-12 bg-[var(--primary)]/10 border-b-2 border-[var(--primary)]/30 z-50 pointer-events-none">
-                                <div className="flex items-center justify-center h-full">
-                                    <span className="text-[var(--primary)] text-xs font-medium">↑ 이전 월</span>
-                                </div>
-                            </div>
-                        )}
-                        {dragEdgeDirection === 'next' && (
-                            <div className="absolute left-0 right-0 bottom-0 h-12 bg-[var(--primary)]/10 border-t-2 border-[var(--primary)]/30 z-50 pointer-events-none">
-                                <div className="flex items-center justify-center h-full">
-                                    <span className="text-[var(--primary)] text-xs font-medium">다음 월 ↓</span>
-                                </div>
-                            </div>
-                        )}
-                    </>
-                )}
                 {viewMode === "calendar" ? (
                     <div className="h-full flex flex-col">
                         {/* 월 표시 */}
-                        <div className="border-b border-[var(--container-border)] bg-[var(--background)]/95 backdrop-blur-sm">
-                            <h3 className="flex justify-center items-center text-sm font-medium text-[var(--secondary)] text-center py-2">
-                                <Button onClick={() => changeMonth("prev")}>
-                                    ←
-                                </Button>
-                                <Button
-                                    onClick={goToToday}
-                                    className="w-20 mx-3 px-3 py-1 text-xs hover:bg-[var(--primary)]/90 text-white rounded-lg transition-opacity"
-                                >
-                                    Today
-                                </Button>
-                                <Button onClick={() => changeMonth("next")}>
-                                    →
-                                </Button>
+                        <div className="border-b border-[var(--container-border)] bg-[var(--background)]/95 backdrop-blur-sm h-12">
+                            <h3 className="flex justify-between items-center h-full">
+                                <div className="flex flex-2 justify-center items-center m font-medium text-[var(--secondary)] enter">
+                                    <Button onClick={() => changeMonth("prev")}>
+                                        ←
+                                    </Button>
+                                    <Button
+                                        onClick={goToToday}
+                                        className="w-20 mx-3 px-3 py-1 text-xs hover:bg-[var(--primary)]/90  rounded-lg transition-opacity"
+                                    >
+                                        Today
+                                    </Button>
+                                    <Button onClick={() => changeMonth("next")}>
+                                        →
+                                    </Button>
+                                </div>
                             </h3>
                         </div>
                         {/* 요일 헤더 */}
@@ -973,7 +885,7 @@ export default function Calendar() {
                                 {weekDays.map((day) => (
                                     <div
                                         key={day}
-                                        className="p-2 text-center text-xs font-medium text-[var(--secondary)] opacity-60"
+                                        className="p-2 text-center enter text-xs font-medium text-[var(--secondary)] opacity-60"
                                     >
                                         {day}
                                     </div>
@@ -984,114 +896,58 @@ export default function Calendar() {
                         {/* 캘린더 그리드 */}
                         <div className="flex-1 p-2 min-h-0 relative overflow-hidden">
                             {currentMonthData && (
-                                <div 
+                                <div
                                     className={cn(
-                                        "grid grid-cols-7 grid-rows-6 gap-1 h-full transition-all duration-300 ease-in-out",
-                                        isTransitioning && transitionDirection === 'next' && "transform -translate-y-full opacity-0",
-                                        isTransitioning && transitionDirection === 'prev' && "transform translate-y-full opacity-0",
-                                        !isTransitioning && "transform translate-y-0 opacity-100"
+                                        "grid grid-cols-7 grid-rows-6 gap-1 h-full"
                                     )}
                                 >
                                     {currentMonthData.days.map((day, index) => (
-                                <div
-                                    key={`${day.date.getFullYear()}-${day.date.getMonth()}-${day.date.getDate()}`}
-                                    className={cn(
-                                                "min-h-0 p-1.5 cursor-pointer relative transition-all duration-200 flex flex-col",
+                                        <Button
+                                            key={`${day.date.getFullYear()}-${day.date.getMonth()}-${day.date.getDate()}`}
+                                            className={cn(
+                                                "min-h-0 p-1.5 cursor-pointer relative flex flex-col",
                                                 "bg-[var(--background)] border border-[var(--container-border)] rounded-lg",
-                                                "hover:bg-amber-100/10 hover:border-[var(--primary)]/30",
-                                        day.isCurrentMonth
+                                                "hover:bg-[var(--secondary-hover)]/20 hover:border-[var(--primary)]/30",
+                                                day.isCurrentMonth
                                                     ? "opacity-100 shadow-sm"
                                                     : "opacity-30 bg-[var(--background)]/50",
-                                        day.isToday &&
-                                                    "ring-2 ring-[var(--primary)] ring-opacity-50 bg-[var(--primary)]/5",
-                                        isDragging && "cursor-grabbing"
-                                    )}
-                                    onMouseDown={(e) =>
-                                        handleMouseDown(day.date, e)
-                                    }
-                                    onMouseEnter={(e) =>
-                                        handleMouseEnter(day.date, e)
-                                    }
-                                    onMouseUp={(e) =>
-                                                handleMouseUp(
+                                                day.isToday &&
+                                                    "ring-2 ring-[var(--primary)] ring-opacity-50 bg-[var(--primary)]/5"
+                                            )}
+                                            onClick={(e) =>
+                                                handleDateClick(
                                                     day.date,
                                                     day.events.length > 0,
                                                     e
                                                 )
                                             }
                                         >
-                                    <div
-                                        className={cn(
+                                            <div
+                                                className={cn(
                                                     "text-[10px] font-medium mb-0.5 flex items-center justify-between relative z-20 flex-shrink-0 h-4",
                                                     day.isCurrentMonth
                                                         ? "text-[var(--secondary)]"
                                                         : "text-[var(--secondary)] opacity-50",
-                                            day.isToday &&
-                                                "text-[var(--primary)] font-bold"
-                                        )}
-                                    >
+                                                    day.isToday &&
+                                                        "text-[var(--primary)] font-bold"
+                                                )}
+                                            >
                                                 <span
                                                     className={cn(
                                                         "flex items-center justify-center",
                                                         day.isToday &&
-                                                            "bg-[var(--primary)] text-white w-4 h-4 rounded-full text-[10px] leading-none"
+                                                            "bg-[var(--primary)]  w-4 h-4 rounded-full text-[10px] leading-none"
                                                     )}
                                                 >
                                                     {day.date.getDate()}
-                                                        </span>
+                                                </span>
                                             </div>
 
-                                            {/* 드래그 이벤트 미리보기 */}
-                                            {isDragging &&
-                                                isInDragRange(day.date) &&
-                                                dragStart &&
-                                                dragEnd && (
-                                                    <div
-                                                        className="absolute left-0 right-0 z-10 pointer-events-none"
-                                                        style={{ top: "30px" }}
-                                                    >
-                                                        <div
-                                                            className={cn(
-                                                                "h-2.5 bg-white opacity-80",
-                                                                isDragStart(
-                                                                    day.date
-                                                                ) &&
-                                                                    "rounded-l",
-                                                                isDragEnd(
-                                                                    day.date
-                                                                ) &&
-                                                                    "rounded-r",
-                                                                !isDragStart(
-                                                                    day.date
-                                                                ) &&
-                                                                    !isDragEnd(
-                                                                        day.date
-                                                                    ) &&
-                                                                    "rounded-none"
-                                                            )}
-                                                            style={{
-                                                                marginLeft:
-                                                                    !isDragStart(
-                                                                        day.date
-                                                                    )
-                                                                        ? "-1px"
-                                                                        : "0",
-                                                                marginRight:
-                                                                    !isDragEnd(
-                                                                        day.date
-                                                                    )
-                                                                        ? "-1px"
-                                                                        : "0",
-                                                            }}
-                                                        />
-                                    </div>
-                                                )}
-
-                                    {/* 이벤트 표시 */}
+                                            {/* 이벤트 표시 */}
                                             <div className="flex-1 min-h-0 overflow-hidden">
                                                 <div className="space-y-0.5 h-full">
-                                        {day.events
-                                            .slice(0, 3)
+                                                    {day.events
+                                                        .slice(0, 3)
                                                         .map((event: Event) => {
                                                             // 이벤트가 여러 날에 걸쳐 있는지 확인
                                                             const isMultiDay =
@@ -1138,37 +994,49 @@ export default function Calendar() {
                                                                         event.id
                                                                     }-${day.date.getTime()}`}
                                                                     className={cn(
-                                                                        "absolute text-[8px] text-white cursor-pointer transition-opacity z-30",
+                                                                        "absolute text-[8px]  cursor-pointer transition-opacity z-[80]",
                                                                         "hover:opacity-80",
                                                                         !day.isCurrentMonth &&
                                                                             "opacity-60",
                                                                         isMultiDay
                                                                             ? [
-                                                                                  "h-2.5 flex items-center text-[8px] leading-none",
+                                                                                  "h-3 flex items-center text-[8px] leading-none",
                                                                                   isFirstDay &&
-                                                                                      "rounded-l pl-0.5",
+                                                                                      "pl-0.5",
                                                                                   isLastDay &&
-                                                                                      "rounded-r pr-0.5",
-                                                                                  !isFirstDay &&
-                                                                                      !isLastDay &&
-                                                                                      "rounded-none",
+                                                                                      "pr-0.5",
                                                                               ]
-                                                                            : "h-2.5 rounded truncate text-[8px] leading-none flex items-center px-0.5"
+                                                                            : "h-3 truncate text-[8px] leading-none flex items-center px-0.5"
                                                                     )}
-                                                    style={{
-                                                        backgroundColor:
-                                                            event.color,
-                                                                        left: isMultiDay && !isFirstDay ? "-1px" : "0",
-                                                                        right: isMultiDay && !isLastDay ? "-1px" : "0",
-                                                                        top: `${30 + (day.events.slice(0, 3).indexOf(event) * 12)}px`,
-                                                    }}
-                                                    onClick={() =>
-                                                        handleDeleteEvent(
-                                                            event.id
-                                                        )
-                                                    }
-                                                    title={`${event.title} (클릭해서 삭제)`}
-                                                >
+                                                                    style={{
+                                                                        zIndex: 1,
+                                                                        backgroundColor:
+                                                                            event.color,
+                                                                        left: "0",
+                                                                        right: "0",
+                                                                        top: `${
+                                                                            25 +
+                                                                            day.events
+                                                                                .slice(
+                                                                                    0,
+                                                                                    3
+                                                                                )
+                                                                                .indexOf(
+                                                                                    event
+                                                                                ) *
+                                                                                14
+                                                                        }px`,
+                                                                    }}
+                                                                    onClick={(
+                                                                        e
+                                                                    ) =>
+                                                                        handleEventClick(
+                                                                            event,
+                                                                            e
+                                                                        )
+                                                                    }
+                                                                    title={`${event.title}`}
+                                                                >
                                                                     {/* 긴 이벤트의 경우 첫날에만 제목 표시 */}
                                                                     {isMultiDay ? (
                                                                         isFirstDay ? (
@@ -1187,13 +1055,16 @@ export default function Calendar() {
                                                                             }
                                                                         </span>
                                                                     )}
-                                                </div>
+                                                                </div>
                                                             );
                                                         })}
-                                        {day.events.length > 3 && (
+                                                    
+                                                </div>
+                                            </div>
+                                            {day.events.length > 3 && (
                                                         <div
                                                             className={cn(
-                                                                "text-[8px] text-[var(--secondary)] opacity-60 px-0.5 py-0.5 h-2.5 flex items-center",
+                                                                "text-[8px] text-[var(--secondary)] opacity-60 px-0.5 py-0.5 h-3 flex justify-end items-center",
                                                                 !day.isCurrentMonth &&
                                                                     "opacity-30"
                                                             )}
@@ -1201,12 +1072,10 @@ export default function Calendar() {
                                                             +
                                                             {day.events.length -
                                                                 3}
-                                            </div>
-                                        )}
-                                                </div>
-                                    </div>
-                                </div>
-                            ))}
+                                                        </div>
+                                                    )}
+                                        </Button>
+                                    ))}
                                 </div>
                             )}
                         </div>
@@ -1216,7 +1085,7 @@ export default function Calendar() {
                     <div className="p-4 h-full overflow-y-auto">
                         <div className="space-y-4">
                             {events.length === 0 ? (
-                                <div className="text-center text-[var(--secondary)] opacity-60 py-8">
+                                <div className="enter text-[var(--secondary)] opacity-60 py-8">
                                     등록된 일정이 없습니다
                                 </div>
                             ) : (
@@ -1229,7 +1098,13 @@ export default function Calendar() {
                                     .map((event) => (
                                         <div
                                             key={event.id}
-                                            className="bg-[var(--background)] border border-[var(--container-border)] rounded-xl p-4 hover:bg-amber-100/10 transition-colors"
+                                            className="bg-[var(--background)] border border-[var(--container-border)] rounded-xl p-4 hover:bg-[var(--secondary-hover)]/20 transition-colors cursor-pointer"
+                                            onClick={() =>
+                                                handleEventClick(
+                                                    event,
+                                                    {} as React.MouseEvent
+                                                )
+                                            }
                                         >
                                             <div className="flex items-start justify-between">
                                                 <div className="flex items-start gap-3 flex-1">
@@ -1245,7 +1120,7 @@ export default function Calendar() {
                                                             {event.title}
                                                         </h3>
                                                         {event.description && (
-                                                            <p className="text-sm text-[var(--secondary)] opacity-70 mb-2">
+                                                            <p className="m text-[var(--secondary)] opacity-70 mb-2">
                                                                 {
                                                                     event.description
                                                                 }
@@ -1274,16 +1149,17 @@ export default function Calendar() {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <button
-                                                    onClick={() =>
+                                                <Button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
                                                         handleDeleteEvent(
                                                             event.id
-                                                        )
-                                                    }
-                                                    className="p-1 text-[var(--secondary)] opacity-40 hover:opacity-100 hover:text-red-500 transition-all"
+                                                        );
+                                                    }}
+                                                    className="p-1 text-[var(--secondary)] opacity-40 hover:opacity-100 hover:ed-500 transition-all"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
-                                                </button>
+                                                </Button>
                                             </div>
                                         </div>
                                     ))
@@ -1293,170 +1169,399 @@ export default function Calendar() {
                 )}
             </div>
 
-            {/* 일정 생성 모달 */}
+            {/* 일정 생성 팝오버 */}
             {isCreatingEvent && (
-                <Modal
-                    isOpen={isCreatingEvent}
-                    onClose={() => {
+                <div
+                    className="fixed inset-0 bg-black/20 flex items-center justify-center z-50"
+                    onClick={() => {
                         setIsCreatingEvent(false);
-                        setDragStart(null);
-                        setDragEnd(null);
-                        setIsDragging(false);
                         setCustomStartDate("");
                         setCustomEndDate("");
+                        setStartDate(null);
+                        setEndDate(null);
+                        setPopoverAnchor(null);
+                        setShowDatePicker(false);
                     }}
-                    width="max-w-lg"
-                    title="새 일정 만들기"
-                    subtitle="일정의 세부 정보를 입력해주세요"
                 >
-                    <div className="space-y-6">
-                        {/* 제목 입력 */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-[var(--secondary)] block">
-                                제목 <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={newEvent.title}
-                                    onChange={(e) =>
-                                        setNewEvent((prev) => ({
-                                            ...prev,
-                                            title: e.target.value,
-                                        }))
-                                    }
-                                className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--container-border)] rounded-xl text-[var(--secondary)] placeholder:text-[var(--secondary)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] transition-all"
-                                    placeholder="일정 제목을 입력하세요"
-                                    autoFocus
-                                />
-                            </div>
-
-                        {/* 설명 입력 */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-[var(--secondary)] block">
-                                    설명
-                                </label>
-                                <textarea
-                                    value={newEvent.description}
-                                    onChange={(e) =>
-                                        setNewEvent((prev) => ({
-                                            ...prev,
-                                            description: e.target.value,
-                                        }))
-                                    }
-                                className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--container-border)] rounded-xl text-[var(--secondary)] placeholder:text-[var(--secondary)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] transition-all resize-none"
-                                placeholder="일정에 대한 추가 정보를 입력하세요"
-                                    rows={3}
-                                />
-                            </div>
-
-                        {/* 장소 입력 */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-[var(--secondary)] block">
-                                장소
-                                </label>
-                                <input
-                                    type="text"
-                                    value={newEvent.location}
-                                    onChange={(e) =>
-                                        setNewEvent((prev) => ({
-                                            ...prev,
-                                            location: e.target.value,
-                                        }))
-                                    }
-                                className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--container-border)] rounded-xl text-[var(--secondary)] placeholder:text-[var(--secondary)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] transition-all"
-                                placeholder="장소를 입력하세요"
-                                />
-                            </div>
-
-                        {/* 날짜 선택 */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-[var(--secondary)] block">
-                                    시작일{" "}
-                                    <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="date"
-                                            value={customStartDate}
-                                            onChange={(e) =>
-                                        setCustomStartDate(e.target.value)
-                                            }
-                                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--container-border)] rounded-xl text-[var(--secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] transition-all"
-                                        />
-                                    </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-[var(--secondary)] block">
-                                            종료일{" "}
-                                    <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="date"
-                                            value={customEndDate}
-                                            onChange={(e) =>
-                                                setCustomEndDate(e.target.value)
-                                            }
-                                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--container-border)] rounded-xl text-[var(--secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] transition-all"
-                                        />
-                                    </div>
-                                </div>
-
-                        {/* 색상 선택 */}
+                    <div
+                        className="bg-[var(--background)] border border-[var(--container-border)] rounded-xl shadow-lg p-4 w-72 max-w-[90vw]"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="space-y-3">
-                            <label className="text-sm font-medium text-[var(--secondary)] block">
-                                색상
-                            </label>
-                            <div className="flex flex-wrap gap-3">
-                                {COLORS.map((color) => (
-                                    <button
-                                        key={color}
-                                        onClick={() =>
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-sm font-medium text-[var(--secondary)]">
+                                    새 일정
+                                </h3>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="color"
+                                        value={newEvent.color}
+                                        onChange={(e) => {
                                             setNewEvent((prev) => ({
                                                 ...prev,
-                                                color,
-                                            }))
-                                        }
-                                        className={cn(
-                                            "w-10 h-10 rounded-full transition-all duration-200 hover:scale-110",
-                                            newEvent.color === color
-                                                ? "ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-[var(--background)] scale-110"
-                                                : "hover:ring-2 hover:ring-[var(--container-border)] hover:ring-offset-2 hover:ring-offset-[var(--background)]"
-                                        )}
-                                        style={{ backgroundColor: color }}
-                                        title={`색상: ${color}`}
+                                                color: e.target.value,
+                                            }));
+                                            setCustomColor(e.target.value);
+                                            // 색상 선택 후 팔레트 닫기
+                                            setTimeout(() => {
+                                                (
+                                                    e.target as HTMLInputElement
+                                                ).blur();
+                                            }, 100);
+                                        }}
+                                        className="w-6 h-6 rounded-full border border-[var(--container-border)] hover:border-[var(--primary)] transition-all cursor-pointer"
+                                        style={{
+                                            backgroundColor: newEvent.color,
+                                        }}
                                     />
-                                ))}
+                                    <input
+                                        type="text"
+                                        value={newEvent.color}
+                                        onChange={(e) => {
+                                            setNewEvent((prev) => ({
+                                                ...prev,
+                                                color: e.target.value,
+                                            }));
+                                            setCustomColor(e.target.value);
+                                        }}
+                                        className="w-16 px-1 py-0.5 bg-[var(--background)] border border-[var(--container-border)] rounded text-xs text-[var(--secondary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/30"
+                                        placeholder="#3b82f6"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* 제목 입력 */}
+                            <input
+                                type="text"
+                                value={newEvent.title}
+                                onChange={(e) =>
+                                    setNewEvent((prev) => ({
+                                        ...prev,
+                                        title: e.target.value,
+                                    }))
+                                }
+                                className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--container-border)] rounded-lg text-sm text-[var(--secondary)] placeholder:text-[var(--secondary)]/50 focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/30 focus:border-[var(--primary)] transition-all"
+                                placeholder="일정 제목"
+                                autoFocus
+                            />
+
+                            {/* 날짜 선택 */}
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className="text-xs text-[var(--secondary)]/70 mb-1 block">
+                                        시작일
+                                    </label>
+                                    <Button
+                                        onClick={() => {
+                                            if (
+                                                showDatePicker &&
+                                                datePickerMode === "start"
+                                            ) {
+                                                setShowDatePicker(false);
+                                            } else {
+                                                setDatePickerMode("start");
+                                                setShowDatePicker(true);
+                                            }
+                                        }}
+                                        className={cn(
+                                            "w-full px-2 py-1.5 bg-[var(--background)] border rounded-lg text-xs text-[var(--secondary)] text-left hover:border-[var(--primary)] transition-all",
+                                            showDatePicker &&
+                                                datePickerMode === "start"
+                                                ? "border-[var(--primary)] ring-2 ring-[var(--primary)]/20"
+                                                : "border-[var(--container-border)]"
+                                        )}
+                                    >
+                                        {startDate
+                                            ? startDate.toLocaleDateString(
+                                                  "ko-KR"
+                                              )
+                                            : "날짜 선택"}
+                                    </Button>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-[var(--secondary)]/70 mb-1 block">
+                                        종료일
+                                    </label>
+                                    <Button
+                                        onClick={() => {
+                                            if (
+                                                showDatePicker &&
+                                                datePickerMode === "end"
+                                            ) {
+                                                setShowDatePicker(false);
+                                            } else {
+                                                setDatePickerMode("end");
+                                                setShowDatePicker(true);
+                                            }
+                                        }}
+                                        className={cn(
+                                            "w-full px-2 py-1.5 bg-[var(--background)] border rounded-lg text-xs text-[var(--secondary)] text-left hover:border-[var(--primary)] transition-all",
+                                            showDatePicker &&
+                                                datePickerMode === "end"
+                                                ? "border-[var(--primary)] ring-2 ring-[var(--primary)]/20"
+                                                : "border-[var(--container-border)]"
+                                        )}
+                                    >
+                                        {endDate
+                                            ? endDate.toLocaleDateString(
+                                                  "ko-KR"
+                                              )
+                                            : "날짜 선택"}
+                                    </Button>
+                                </div>
+                            </div>
+                            {/* 날짜 피커 */}
+                            {showDatePicker && (
+                                <div className="border border-[var(--container-border)] rounded-lg">
+                                    <CalendarPicker
+                                        selected={
+                                            datePickerMode === "start"
+                                                ? startDate
+                                                : endDate
+                                        }
+                                        onSelect={(date) => {
+                                            if (date) {
+                                                if (
+                                                    datePickerMode === "start"
+                                                ) {
+                                                    setStartDate(date);
+                                                    const year =
+                                                        date.getFullYear();
+                                                    const month = String(
+                                                        date.getMonth() + 1
+                                                    ).padStart(2, "0");
+                                                    const day = String(
+                                                        date.getDate()
+                                                    ).padStart(2, "0");
+                                                    setCustomStartDate(
+                                                        `${year}-${month}-${day}`
+                                                    );
+                                                } else {
+                                                    setEndDate(date);
+                                                    const year =
+                                                        date.getFullYear();
+                                                    const month = String(
+                                                        date.getMonth() + 1
+                                                    ).padStart(2, "0");
+                                                    const day = String(
+                                                        date.getDate()
+                                                    ).padStart(2, "0");
+                                                    setCustomEndDate(
+                                                        `${year}-${month}-${day}`
+                                                    );
+                                                }
+                                                setShowDatePicker(false);
+                                            }
+                                        }}
+                                        className="w-full"
+                                    />
+                                </div>
+                            )}
+
+                            {/* 설명 입력 */}
+                            <input
+                                type="text"
+                                value={newEvent.description}
+                                onChange={(e) =>
+                                    setNewEvent((prev) => ({
+                                        ...prev,
+                                        description: e.target.value,
+                                    }))
+                                }
+                                className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--container-border)] rounded-lg text-sm text-[var(--secondary)] placeholder:text-[var(--secondary)]/50 focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/30 focus:border-[var(--primary)] transition-all"
+                                placeholder="설명 (선택사항)"
+                            />
+
+                            {/* 장소 입력 */}
+                            <input
+                                type="text"
+                                value={newEvent.location}
+                                onChange={(e) =>
+                                    setNewEvent((prev) => ({
+                                        ...prev,
+                                        location: e.target.value,
+                                    }))
+                                }
+                                className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--container-border)] rounded-lg text-sm text-[var(--secondary)] placeholder:text-[var(--secondary)]/50 focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/30 focus:border-[var(--primary)] transition-all"
+                                placeholder="장소 (선택사항)"
+                            />
+
+                            {/* 반복 일정 설정 */}
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        id="recurring"
+                                        checked={isRecurring}
+                                        onChange={(e) => setIsRecurring(e.target.checked)}
+                                        className="w-4 h-4 text-[var(--primary)] bg-[var(--background)] border-[var(--container-border)] rounded focus:ring-[var(--primary)] focus:ring-2"
+                                    />
+                                    <label htmlFor="recurring" className="text-sm text-[var(--secondary)]">
+                                        반복 일정
+                                    </label>
+                                </div>
+
+                                {isRecurring && (
+                                    <div className="space-y-3 p-3 bg-[var(--background)]/50 border border-[var(--container-border)] rounded-lg">
+                                        {/* 반복 유형 */}
+                                        <div>
+                                            <label className="text-xs text-[var(--secondary)]/70 mb-1 block">
+                                                반복 유형
+                                            </label>
+                                            <select
+                                                value={recurrenceType}
+                                                onChange={(e) => setRecurrenceType(e.target.value as 'daily' | 'weekly' | 'monthly' | 'yearly')}
+                                                className="w-full px-2 py-1.5 bg-[var(--background)] border border-[var(--container-border)] rounded text-xs text-[var(--secondary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/30"
+                                            >
+                                                <option value="daily">매일</option>
+                                                <option value="weekly">매주</option>
+                                                <option value="monthly">매월</option>
+                                                <option value="yearly">매년</option>
+                                            </select>
+                                        </div>
+
+                                        {/* 간격 설정 */}
+                                        <div>
+                                            <label className="text-xs text-[var(--secondary)]/70 mb-1 block">
+                                                간격
+                                            </label>
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    max="10"
+                                                    value={recurrenceInterval}
+                                                    onChange={(e) => setRecurrenceInterval(parseInt(e.target.value) || 1)}
+                                                    className="w-16 px-2 py-1.5 bg-[var(--background)] border border-[var(--container-border)] rounded text-xs text-[var(--secondary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/30"
+                                                />
+                                                <span className="text-xs text-[var(--secondary)]/70">
+                                                    {recurrenceType === 'daily' && '일마다'}
+                                                    {recurrenceType === 'weekly' && '주마다'}
+                                                    {recurrenceType === 'monthly' && '개월마다'}
+                                                    {recurrenceType === 'yearly' && '년마다'}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* 요일 선택 (주간 반복시만) */}
+                                        {recurrenceType === 'weekly' && (
+                                            <div>
+                                                <label className="text-xs text-[var(--secondary)]/70 mb-1 block">
+                                                    요일 선택
+                                                </label>
+                                                <div className="flex gap-1">
+                                                    {['일', '월', '화', '수', '목', '금', '토'].map((day, index) => (
+                                                        <button
+                                                            key={index}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                if (selectedDaysOfWeek.includes(index)) {
+                                                                    setSelectedDaysOfWeek(prev => prev.filter(d => d !== index));
+                                                                } else {
+                                                                    setSelectedDaysOfWeek(prev => [...prev, index]);
+                                                                }
+                                                            }}
+                                                            className={cn(
+                                                                "w-8 h-8 text-xs rounded-full transition-all",
+                                                                selectedDaysOfWeek.includes(index)
+                                                                    ? "bg-[var(--primary)] text-white"
+                                                                    : "bg-[var(--background)] border border-[var(--container-border)] text-[var(--secondary)]"
+                                                            )}
+                                                        >
+                                                            {day}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* 종료 조건 */}
+                                        <div>
+                                            <label className="text-xs text-[var(--secondary)]/70 mb-1 block">
+                                                종료 조건
+                                            </label>
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="radio"
+                                                        id="endByCount"
+                                                        name="endCondition"
+                                                        checked={!useEndDate}
+                                                        onChange={() => setUseEndDate(false)}
+                                                        className="w-3 h-3 text-[var(--primary)] bg-[var(--background)] border-[var(--container-border)]"
+                                                    />
+                                                    <label htmlFor="endByCount" className="text-xs text-[var(--secondary)]">
+                                                        횟수로 종료
+                                                    </label>
+                                                    {!useEndDate && (
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            max="100"
+                                                            value={recurrenceCount}
+                                                            onChange={(e) => setRecurrenceCount(parseInt(e.target.value) || 1)}
+                                                            className="w-16 px-1 py-0.5 bg-[var(--background)] border border-[var(--container-border)] rounded text-xs text-[var(--secondary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/30"
+                                                        />
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="radio"
+                                                        id="endByDate"
+                                                        name="endCondition"
+                                                        checked={useEndDate}
+                                                        onChange={() => setUseEndDate(true)}
+                                                        className="w-3 h-3 text-[var(--primary)] bg-[var(--background)] border-[var(--container-border)]"
+                                                    />
+                                                    <label htmlFor="endByDate" className="text-xs text-[var(--secondary)]">
+                                                        날짜로 종료
+                                                    </label>
+                                                    {useEndDate && (
+                                                        <input
+                                                            type="date"
+                                                            value={recurrenceEndDate ? recurrenceEndDate.toISOString().split('T')[0] : ''}
+                                                            onChange={(e) => setRecurrenceEndDate(e.target.value ? new Date(e.target.value) : null)}
+                                                            className="px-1 py-0.5 bg-[var(--background)] border border-[var(--container-border)] rounded text-xs text-[var(--secondary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/30"
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 액션 버튼 */}
+                            <div className="flex gap-2 pt-2">
+                                <button
+                                    onClick={() => {
+                                        setIsCreatingEvent(false);
+                                        setCustomStartDate("");
+                                        setCustomEndDate("");
+                                        setStartDate(null);
+                                        setEndDate(null);
+                                        setPopoverAnchor(null);
+                                        setShowDatePicker(false);
+                                    }}
+                                    className="flex-1 px-3 py-2 text-xs text-[var(--secondary)]/70 hover:text-[var(--secondary)] border border-[var(--container-border)] rounded-lg hover:bg-[var(--container-border)]/10 transition-all"
+                                >
+                                    취소
+                                </button>
+                                <button
+                                    onClick={handleCreateEvent}
+                                    disabled={
+                                        !newEvent.title.trim() ||
+                                        !startDate ||
+                                        !endDate
+                                    }
+                                    className="flex-1 px-3 py-2 text-xs bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    추가
+                                </button>
                             </div>
                         </div>
-
-                        {/* 액션 버튼 */}
-                        <div className="flex gap-3 pt-4 border-t border-[var(--container-border)]/20">
-                            <button
-                                onClick={() => {
-                                    setIsCreatingEvent(false);
-                                    setDragStart(null);
-                                    setDragEnd(null);
-                                    setIsDragging(false);
-                                    setCustomStartDate("");
-                                    setCustomEndDate("");
-                                }}
-                                className="flex-1 px-6 py-3 text-[var(--secondary)]/70 hover:text-[var(--secondary)] border border-[var(--container-border)] rounded-xl hover:bg-[var(--container-border)]/10 transition-all duration-200 font-medium"
-                            >
-                                취소
-                            </button>
-                            <button
-                                onClick={handleCreateEvent}
-                                disabled={
-                                    !newEvent.title.trim() ||
-                                    ((!customStartDate || !customEndDate) &&
-                                        (!dragStart || !dragEnd))
-                                }
-                                className="flex-1 px-6 py-3 bg-[var(--primary)] text-white rounded-xl hover:bg-[var(--primary)]/90 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-lg shadow-[var(--primary)]/20"
-                            >
-                                일정 만들기
-                            </button>
-                        </div>
                     </div>
-                </Modal>
+                </div>
             )}
 
             {/* 일정 보기 모달 */}
@@ -1467,7 +1572,6 @@ export default function Calendar() {
                         setIsViewingEvents(false);
                         setSelectedDate(null);
                     }}
-                    width="max-w-lg"
                     title={selectedDate.toLocaleDateString("ko-KR", {
                         year: "numeric",
                         month: "long",
@@ -1533,14 +1637,14 @@ export default function Calendar() {
 
                                 if (dayEvents.length === 0) {
                                     return (
-                                        <div className="text-center py-12">
+                                        <div className="enter py-12">
                                             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--container-border)]/20 flex items-center justify-center">
                                                 <CalendarIcon className="w-8 h-8 text-[var(--secondary)]/40" />
                                             </div>
                                             <p className="text-[var(--secondary)]/60 font-medium">
                                                 이 날에는 일정이 없습니다
                                             </p>
-                                            <p className="text-sm text-[var(--secondary)]/40 mt-1">
+                                            <p className="m text-[var(--secondary)]/40 mt-1">
                                                 새로운 일정을 추가해보세요
                                             </p>
                                         </div>
@@ -1566,7 +1670,7 @@ export default function Calendar() {
                                                         {event.title}
                                                     </h4>
                                                     {event.description && (
-                                                        <p className="text-sm text-[var(--secondary)]/70 mb-3 leading-relaxed">
+                                                        <p className="m text-[var(--secondary)]/70 mb-3 leading-relaxed">
                                                             {event.description}
                                                         </p>
                                                     )}
@@ -1652,7 +1756,7 @@ export default function Calendar() {
                                                         setSelectedDate(null);
                                                     }
                                                 }}
-                                                className="p-2 text-[var(--secondary)]/30 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
+                                                className="p-2 text-[var(--secondary)]/30 hover:text-[var(--error)] hover:bg-[var(--error)]/10 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
                                                 title="일정 삭제"
                                             >
                                                 <Trash2 className="w-4 h-4" />
@@ -1694,6 +1798,8 @@ export default function Calendar() {
                                     setCustomEndDate(
                                         formatDateToLocal(selectedDate)
                                     );
+                                    setStartDate(selectedDate);
+                                    setEndDate(selectedDate);
                                     setSelectedDate(null);
                                     setNewEvent({
                                         title: "",
@@ -1703,9 +1809,9 @@ export default function Calendar() {
                                     });
                                     setIsCreatingEvent(true);
                                 }}
-                                className="flex-1 px-6 py-3 bg-[var(--primary)] text-white rounded-xl hover:bg-[var(--primary)]/90 transition-all duration-200 font-medium shadow-lg shadow-[var(--primary)]/20"
+                                className="flex-1 px-6 py-3 bg-[var(--primary)]  rounded-xl hover:bg-[var(--primary)]/90 transition-all duration-200 font-medium shadow-lg shadow-[var(--primary)]/20"
                             >
-                                <div className="flex items-center justify-center gap-2">
+                                <div className="flex items-center justify-center gap-1">
                                     <Plus className="w-4 h-4" />새 일정 추가
                                 </div>
                             </button>
@@ -1714,7 +1820,68 @@ export default function Calendar() {
                 </Modal>
             )}
 
+            {/* AI 플로팅 버튼 */}
+            <button
+                ref={(el) => setAiButtonRef(el)}
+                onClick={() => setShowAIPopover(true)}
+                className="fixed bottom-6 right-6 w-14 h-14 bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-40 flex items-center justify-center cursor-pointer"
+                title="AI 일정 생성"
+            >
+                <Sparkles className="w-6 h-6" />
+            </button>
 
+            {/* AI 팝오버 */}
+            <Popover
+                isOpen={showAIPopover}
+                onClose={() => {
+                    setShowAIPopover(false);
+                    setAiInput("");
+                }}
+                anchorElement={aiButtonRef}
+                placement="top"
+                className="w-80 p-4"
+            >
+                <div className="space-y-3">
+                    <h3 className="text-sm font-medium text-[var(--secondary)] flex items-center gap-2">
+                        <Sparkles className="w-4 h-4" />
+                        AI 일정 생성
+                    </h3>
+                    <div className="space-y-2">
+                        <input
+                            type="text"
+                            value={aiInput}
+                            onChange={(e) => setAiInput(e.target.value)}
+                            placeholder="예: 2025년 5월 1일부터 매주 화요일 회의 일정 잡아줘"
+                            className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--container-border)] rounded-lg text-sm text-[var(--secondary)] placeholder:text-[var(--secondary)]/50 focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/30 focus:border-[var(--primary)] transition-all"
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    handleAIScheduleRequest();
+                                }
+                            }}
+                            autoFocus
+                        />
+                        <div className="flex gap-2">
+                            <Button
+                                onClick={() => {
+                                    setShowAIPopover(false);
+                                    setAiInput("");
+                                }}
+                                className="flex-1 px-3 py-2 text-xs text-[var(--secondary)]/70 hover:text-[var(--secondary)] border border-[var(--container-border)] rounded-lg hover:bg-[var(--container-border)]/10 transition-all"
+                            >
+                                취소
+                            </Button>
+                            <Button
+                                onClick={handleAIScheduleRequest}
+                                disabled={isProcessingAI || !aiInput.trim()}
+                                className="flex-1 px-3 py-2 text-xs bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors disabled:opacity-50"
+                            >
+                                {isProcessingAI ? "생성 중..." : "생성"}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </Popover>
         </div>
     );
 }
+

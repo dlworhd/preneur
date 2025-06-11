@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { PlusIcon } from "lucide-react";
 import RoutineCard, { type Routine } from "./RoutineCard";
 import { StatusIcon, type StatusType } from "@/components/dashboard/common/StatusIcon";
+import Button from "@/components/common/Button";
 
 interface RoutineKanbanColumnProps {
     id: string;
@@ -80,7 +81,7 @@ export default function RoutineKanbanColumn({
                     {showAddRoutine ? (
                         <form
                             onSubmit={handleAddRoutine}
-                            className="p-3 border-2 border-dashed border-[var(--primary)] rounded-lg bg-[var(--background)]"
+                            className="p-3 border border-dashed border-[var(--primary)] rounded-lg bg-[var(--background)]"
                         >
                             <input
                                 type="text"
@@ -102,13 +103,13 @@ export default function RoutineKanbanColumn({
                                 }}
                             />
                             <div className="flex gap-2 mt-2">
-                                <button
+                                <Button
                                     type="submit"
-                                    className="text-xs px-2 py-1 bg-[var(--primary)] text-white rounded hover:opacity-80"
+                                    className="text-xs px-2 py-1 bg-[var(--primary)]  rounded hover:opacity-80"
                                 >
                                     추가
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     type="button"
                                     onClick={() => {
                                         setNewRoutineTitle("");
@@ -117,12 +118,12 @@ export default function RoutineKanbanColumn({
                                     className="text-xs px-2 py-1 text-[var(--secondary)] opacity-60 hover:opacity-100"
                                 >
                                     취소
-                                </button>
+                                </Button>
                             </div>
                         </form>
                     ) : (
                         <div
-                            className="p-3 border-2 border-dashed border-transparent rounded-lg hover:border-[var(--primary)] hover:bg-[var(--primary)]/5 transition-all cursor-pointer"
+                            className="p-3 border border-dashed border-transparent rounded-lg hover:border-[var(--primary)] hover:bg-[var(--primary)]/5 transition-all cursor-pointer"
                             onClick={() => setShowAddRoutine(true)}
                         >
                             <div className="text-center text-xs text-[var(--secondary)] opacity-40 hover:opacity-60">

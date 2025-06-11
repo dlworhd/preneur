@@ -19,6 +19,7 @@ import {
 import NavMenuItem, { type NavItem } from "./NavMenuItem";
 import { Select, SelectItem } from "@/components/common/Select";
 import { useCommandPalette } from "@/components/providers/CommandPaletteProvider";
+import Button from "../../common/Button";
 
 export default function SideBar() {
     const { openCommandPalette } = useCommandPalette();
@@ -135,19 +136,19 @@ export default function SideBar() {
                 </Select>
                 {/* Command Palette Button */}
             <div className="w-full my-4 flex justify-center">
-                <button
+                <Button
                     onClick={openCommandPalette}
                     className="w-full h-10 group flex justify-between items-center gap-4 px-2 py-1 bg-[var(--background)]/80 border border-[var(--container-border)]/80 rounded-md text-[var(--secondary)]/60 hover:text-[var(--secondary)] hover:border-[var(--primary)]/80 hover:bg-[var(--primary)]/5 transition-all duration-200 text-[10px]"
                     title="커맨드 팔레트 열기"
                 >
-                    <Search width={20} height={20}/>
-                    <span className="text-[0.8rem] font-medium w-28 text-start">Search</span>
+                    <Search width={20} height={20} />
+                    <span className="text-[0.8rem] font-medium w-30 text-start">Search</span>
                     <div className="flex items-center gap-0.5 text-[9px] opacity-70">
                         <kbd className="flex justify-center items-center gap-1 w-[40px] p-1 bg-[var(--container-border)]/20 rounded text-[11px]">
                                 <span className="text-[1rem]">⌘</span><span className="text-[0.7rem]">K</span>
                         </kbd>
                     </div>
-                </button>
+                </Button>
             </div>
             </NavHeader>
             <NavMenu className="flex-8 p-2">

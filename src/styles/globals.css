@@ -64,144 +64,90 @@
 }
 
 :root {
-    /* 베이스 컬러 */
-    --background: #fafafa;
-    --foreground: #01010b;
-    --primary: #39e291;
-    --secondary: #b4b4b4;
-    --border-1: #d7d7d7;
-    --border-2: #ededed;
+    /* radix */
+    /* background */
+    --background: #fdfdfe;
+    --background-alt: #f9f9fd;
 
-    /* 버튼 */
+    /* foreground (text) */
+    --foreground: #282440;
+    --foreground-muted: #645f8a;
+
+    /* primary (brand/main) */
+    --primary: #292541;
+    --primary-foreground: #ffffff;
+    --primary-hover: #3d3957;
+
+    /* secondary (accent/background) */
+    --secondary: #f1f0f8;
+    --secondary-foreground: #282440;
+    --secondary-hover: #e8e7f6;
+
+    /* borders */
+    --border: #d4d2f0;
+    --border-strong: #c5c2e7;
+    --separator: #afabda;
+
+    /* surface (card, modal) */
+    --surface: #f8f8fdee;
+
+    /* indicator & track */
+    --indicator: #292541;
+    --track: #292541;
+
     --btn-primary: var(--primary);
     --btn-secondary: (--secondary);
-    --btn-border: var(--border-1);
-
-    /* 상태 색상 */
-    --success: #10b981;
-    --warning: #f59e0b;
-    --error: #ef4444;
-    --info: #3b82f6;
-    --purple: #8b5cf6;
-    --gray: #6b7280;
-
-    /* 우선순위 색상 */
-    --priority-high-bg: #fef2f2;
-    --priority-high-text: #991b1b;
-    --priority-medium-bg: #fefce8;
-    --priority-medium-text: #a16207;
-    --priority-low-bg: #f0fdf4;
-    --priority-low-text: #166534;
-
-    /* 상태 색상 */
-    --status-todo-bg: #f9fafb;
-    --status-todo-text: #374151;
-    --status-progress-bg: #eff6ff;
-    --status-progress-text: #1e40af;
-    --status-review-bg: #faf5ff;
-    --status-review-text: #7c3aed;
-    --status-done-bg: #f0fdf4;
-    --status-done-text: #166534;
-
-    /* 컬럼 배경 색상 */
-    --column-todo-bg: #f9fafb;
-    --column-progress-bg: #eff6ff;
-    --column-review-bg: #faf5ff;
-    --column-done-bg: #f0fdf4;
-
-    /* 트렌드 색상 */
-    --trend-up: #10b981;
-    --trend-down: #ef4444;
-    --trend-stable: #6b7280;
-
-    /* 기본 색상 팔레트 - Tailwind 대체 */
-    --gray-50: #f9fafb;
-    --gray-100: #f3f4f6;
-    --gray-200: #e5e7eb;
-    --gray-300: #d1d5db;
-    --gray-400: #9ca3af;
-    --gray-500: #6b7280;
-    --gray-600: #4b5563;
-    --gray-700: #374151;
-    --gray-800: #1f2937;
-    --gray-900: #111827;
-
-    --red-50: #fef2f2;
-    --red-100: #fee2e2;
-    --red-200: #fecaca;
-    --red-300: #fca5a5;
-    --red-400: #f87171;
-    --red-500: #ef4444;
-    --red-600: #dc2626;
-    --red-700: #b91c1c;
-    --red-800: #991b1b;
-    --red-900: #7f1d1d;
-
-    --yellow-50: #fefce8;
-    --yellow-100: #fef3c7;
-    --yellow-200: #fde68a;
-    --yellow-300: #fcd34d;
-    --yellow-400: #fbbf24;
-    --yellow-500: #f59e0b;
-    --yellow-600: #d97706;
-    --yellow-700: #b45309;
-    --yellow-800: #92400e;
-    --yellow-900: #78350f;
-
-    --green-50: #f0fdf4;
-    --green-100: #dcfce7;
-    --green-200: #bbf7d0;
-    --green-300: #86efac;
-    --green-400: #4ade80;
-    --green-500: #22c55e;
-    --green-600: #16a34a;
-    --green-700: #15803d;
-    --green-800: #166534;
-    --green-900: #14532d;
-
-    --blue-50: #eff6ff;
-    --blue-100: #dbeafe;
-    --blue-200: #bfdbfe;
-    --blue-300: #93c5fd;
-    --blue-400: #60a5fa;
-    --blue-500: #3b82f6;
-    --blue-600: #2563eb;
-    --blue-700: #1d4ed8;
-    --blue-800: #1e40af;
-    --blue-900: #1e3a8a;
-
-    --purple-50: #faf5ff;
-    --purple-100: #f3e8ff;
-    --purple-200: #e9d5ff;
-    --purple-300: #d8b4fe;
-    --purple-400: #c084fc;
-    --purple-500: #a855f7;
-    --purple-600: #9333ea;
-    --purple-700: #7c3aed;
-    --purple-800: #6b21a8;
-    --purple-900: #581c87;
-
-    /* 시맨틱 색상 매핑 */
-    --text-primary: var(--foreground);
-    --text-secondary: var(--secondary);
-    --text-muted: var(--gray-500);
-    --text-disabled: var(--gray-400);
-    
-    --bg-primary: var(--background);
-    --bg-secondary: var(--gray-50);
-    --bg-muted: var(--gray-100);
-    --bg-disabled: var(--gray-200);
-
-    /* 상태별 아이콘 색상 */
-    --icon-success: var(--green-500);
-    --icon-warning: var(--yellow-500);
-    --icon-error: var(--red-500);
-    --icon-info: var(--blue-500);
-    --icon-muted: var(--gray-400);
-    --icon-disabled: var(--gray-300);
+    --btn-border: var(--border);
 }
 
+/* 다크모드 활성화 */
+@media (prefers-color-scheme: dark) {
+    :root {
+        /* background */
+        --background: #111019;
+        --background-alt: #171622;
+
+        /* foreground (text) */
+        --foreground: #e1dff8;
+        --foreground-muted: #b5afe5;
+
+        /* primary (brand/main) */
+        --primary: #6e6899;
+        --primary-foreground: #ffffff;
+        --primary-hover: #615a8a;
+
+        /* secondary (accent/background) */
+        --secondary: #26223e;
+        --secondary-foreground: #e1dff8;
+        --secondary-hover: #312a53;
+
+        /* borders */
+        --border: #202020;
+        --border-strong: #534c7b;
+        --separator: #666090;
+
+        /* surface (card, modal) */
+        --surface: #1d1b3380; /* 8자리 헥사코드(알파 포함) */
+
+        /* indicator & track */
+        --indicator: #6e6899;
+        --track: #6e6899;
+
+        /* warning, error, success (추가 색상 예시) */
+        --warning: #f59e0b;
+        --warning-foreground: #ffffff;
+        --error: #ef4444;
+        --error-foreground: #ffffff;
+        --success: #10b981;
+        --success-foreground: #ffffff;
+    }
+}
+
+::-webkit-scrollbar {
+    display: none;
+}
 * {
+    color: var(--foreground);
     box-sizing: border-box;
 }
 
@@ -216,10 +162,12 @@ body {
 
 /* 커서 깜빡임 애니메이션 */
 @keyframes blink {
-    0%, 50% {
+    0%,
+    50% {
         opacity: 1;
     }
-    51%, 100% {
+    51%,
+    100% {
         opacity: 0;
     }
 }
@@ -228,3 +176,172 @@ body {
     animation: blink 1s infinite;
 }
 
+/* 볼륨 슬라이더 썸(원형 버튼) 제거 */
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 0;
+    height: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
+.volume-slider::-moz-range-thumb {
+    width: 0;
+    height: 0;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    -moz-appearance: none;
+}
+
+/* Animation delays for liquid glass effects */
+.animation-delay-500 {
+    animation-delay: 0.5s;
+}
+
+.animation-delay-1000 {
+    animation-delay: 1s;
+}
+
+.animation-delay-2000 {
+    animation-delay: 2s;
+}
+
+/* Enhanced glass morphism effects */
+@supports (backdrop-filter: blur(20px)) {
+    .glass-card {
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+    }
+}
+
+/* Smooth transitions for all glass elements */
+.glass-transition {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Floating animation for particles */
+@keyframes float {
+    0%,
+    100% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-20px);
+    }
+}
+
+.animate-float {
+    animation: float 6s ease-in-out infinite;
+}
+
+/* Liquid morphing animation */
+@keyframes liquid-morph {
+    0%,
+    100% {
+        border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+        transform: scale(1) rotate(0deg);
+    }
+    25% {
+        border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%;
+        transform: scale(1.05) rotate(90deg);
+    }
+    50% {
+        border-radius: 70% 30% 40% 60% / 40% 70% 60% 30%;
+        transform: scale(0.95) rotate(180deg);
+    }
+    75% {
+        border-radius: 40% 70% 60% 30% / 70% 40% 50% 60%;
+        transform: scale(1.02) rotate(270deg);
+    }
+}
+
+.animate-liquid-morph {
+    animation: liquid-morph 15s ease-in-out infinite;
+}
+
+@keyframes float-bounce-1 {
+    0%,
+    100% {
+        transform: translateY(0) scale(1);
+        opacity: 0.7;
+    }
+    50% {
+        transform: translateY(-60px) scale(1.12);
+        opacity: 1;
+    }
+}
+@keyframes float-bounce-2 {
+    0%,
+    100% {
+        transform: translateY(0) scale(1);
+        opacity: 0.6;
+    }
+    50% {
+        transform: translateY(80px) scale(0.92);
+        opacity: 1;
+    }
+}
+@keyframes float-bounce-3 {
+    0%,
+    100% {
+        transform: translateY(0) scale(1);
+        opacity: 0.6;
+    }
+    50% {
+        transform: translateY(-40px) scale(1.08);
+        opacity: 1;
+    }
+}
+
+.float-bounce-1 {
+    animation: float-bounce-1 3s ease-in-out infinite;
+}
+.float-bounce-2 {
+    animation: float-bounce-2 5s ease-in-out infinite;
+}
+.float-bounce-3 {
+    animation: float-bounce-3 4s ease-in-out infinite;
+}
+
+.dark,
+.dark-theme {
+    /* background */
+    --background: #111019;
+    --background-alt: #171622;
+
+    /* foreground (text) */
+    --foreground: #e1dff8;
+    --foreground-muted: #b5afe5;
+
+    /* primary (brand/main) */
+    --primary: #6e6899;
+    --primary-foreground: #ffffff;
+    --primary-hover: #615a8a;
+
+    /* secondary (accent/background) */
+    --secondary: #26223e;
+    --secondary-foreground: #e1dff8;
+    --secondary-hover: #312a53;
+
+    /* borders */
+    --border: #453e6b;
+    --border-strong: #534c7b;
+    --separator: #666090;
+
+    /* surface (card, modal) */
+    --surface: #1d1b3380; /* 8자리 헥사코드(알파 포함) */
+
+    /* indicator & track */
+    --indicator: #6e6899;
+    --track: #6e6899;
+
+    /* warning, error, success (추가 색상 예시) */
+    --warning: #f59e0b;
+    --warning-foreground: #ffffff;
+    --error: #ef4444;
+    --error-foreground: #ffffff;
+    --success: #10b981;
+    --success-foreground: #ffffff;
+}

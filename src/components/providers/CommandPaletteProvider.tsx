@@ -31,7 +31,7 @@ export default function CommandPaletteProvider({ children }: CommandPaletteProvi
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             // Cmd+/ 또는 Ctrl+/ 단축키
-            if ((e.metaKey || e.ctrlKey) && e.key === "K") {
+            if ((e.metaKey || e.ctrlKey) && e.key === "k" ) {
                 e.preventDefault();
                 if (!isOpen) {
                     openCommandPalette();

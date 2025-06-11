@@ -5,32 +5,110 @@ import Modal from "@/components/common/Modal";
 import PageHeader from "@/components/dashboard/PageHeader";
 import PageContent from "@/components/dashboard/PageContent";
 import MetricCard from "@/components/dashboard/MetricCard";
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
+    Filler,
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
+
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
+    Filler
+);
 
 interface ActivityData {
     day: number;
     value: number;
 }
 
-function ActivityBar({ data }: { data: ActivityData[] }) {
+function ActivityChart({ data }: { data: ActivityData[] }) {
+    const chartData = {
+        labels: data.map((_, idx) => `${idx + 1}`),
+        datasets: [
+            {
+                label: 'Activity',
+                data: data.map(d => d.value),
+                borderColor: 'rgb(59, 130, 246)',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 2,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+                pointBackgroundColor: 'rgb(59, 130, 246)',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 1,
+                fill: true,
+                tension: 0.4,
+            },
+        ],
+    };
+
+    const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: false,
+            },
+            tooltip: {
+                backgroundColor: 'rgba(17, 16, 25, 0.9)',
+                titleColor: '#e1dffa',
+                bodyColor: '#e1dffa',
+                borderColor: 'rgba(59, 130, 246, 0.3)',
+                borderWidth: 1,
+                cornerRadius: 8,
+                displayColors: false,
+                callbacks: {
+                    title: function(context: any) {
+                        return `Day ${parseInt(context[0].label)}`;
+                    },
+                    label: function(context: any) {
+                        return `Activity: ${context.parsed.y}%`;
+                    },
+                },
+            },
+        },
+        scales: {
+            x: {
+                display: false,
+                grid: {
+                    display: false,
+                },
+            },
+            y: {
+                display: false,
+                grid: {
+                    display: false,
+                },
+                beginAtZero: false,
+            },
+        },
+        elements: {
+            point: {
+                hoverBorderWidth: 2,
+            },
+        },
+        interaction: {
+            intersect: false,
+            mode: 'index' as const,
+        },
+    };
+
     return (
-        <div className="flex items-end gap-1 h-[100px] px-2">
-            {data.map((item, idx) => (
-                <div
-                    key={idx}
-                    className={cn(
-                        "flex-1 bg-[var(--primary)]",
-                        "transition-opacity duration-300",
-                        "hover:opacity-80",
-                        item.value > 70
-                            ? "opacity-100"
-                            : item.value > 40
-                            ? "opacity-70"
-                            : "opacity-40"
-                    )}
-                    style={{ height: `${item.value}%` }}
-                    title={`Day ${item.day}: ${item.value}`}
-                />
-            ))}
+        <div className="h-[100px] px-2">
+            <Line data={chartData} options={options} />
         </div>
     );
 }
@@ -188,7 +266,7 @@ export default function DashboardPage() {
     ];
 
     return (
-        <div className={cn("flex flex-col h-full")}>
+        <div className={cn("bg-[var(--background)] flex flex-col h-full")}>
             <PageHeader title="Dashboard Overview" />
 
             <PageContent>
@@ -224,10 +302,10 @@ export default function DashboardPage() {
                     </div>
                     <div className="p-2">
                         {isClient && activityData.length > 0 ? (
-                            <ActivityBar data={activityData} />
+                            <ActivityChart data={activityData} />
                         ) : (
                             <div className="h-[100px] flex items-center justify-center">
-                                <span className="text-sm text-[var(--secondary)] opacity-60">
+                                <span className="m text-[var(--secondary)] opacity-60">
                                     Loading...
                                 </span>
                             </div>
@@ -246,7 +324,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-2">
                         <div className="border border-[var(--container-border)] rounded-lg p-3 bg-[var(--background)] hover:shadow-md transition-shadow">
-                            <div className="text-sm text-[var(--secondary)] mb-1">
+                            <div className="m text-[var(--secondary)] mb-1">
                                 완료된 작업
                             </div>
                             <div className="text-xl font-bold text-[var(--primary)]">
@@ -254,7 +332,7 @@ export default function DashboardPage() {
                             </div>
                         </div>
                         <div className="border border-[var(--container-border)] rounded-lg p-3 bg-[var(--background)] hover:shadow-md transition-shadow">
-                            <div className="text-sm text-[var(--secondary)] mb-1">
+                            <div className="m text-[var(--secondary)] mb-1">
                                 생산성 점수
                             </div>
                             <div className="text-xl font-bold text-[var(--primary)]">
@@ -273,7 +351,7 @@ export default function DashboardPage() {
                     isOpen={showPopup}
                     onClose={() => setShowPopup(false)}
                 >
-                    <div className="p-4 text-center">
+                    <div className="p-4 enter">
                         <h3 className="text-lg font-medium mb-2 text-[var(--secondary)]">
                             Life Timer
                         </h3>

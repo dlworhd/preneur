@@ -1,269 +1,563 @@
+import React, { useState } from "react";
 import { cn } from "@/lib/utils";
-import React, { useState, useEffect } from "react";
-import { Settings, User, Bell, Shield, Palette, Database, PlusIcon, ChevronRight } from "lucide-react";
+import {
+    User,
+    Bell,
+    Shield,
+    Palette,
+    Globe,
+    Database,
+    Download,
+    Trash2,
+    Eye,
+    EyeOff,
+    Save,
+    RefreshCw,
+    Moon,
+    Sun,
+    Monitor,
+    Volume2,
+    VolumeX,
+    Mail,
+    Phone,
+    MapPin,
+    Calendar,
+    Clock,
+    Key,
+    CreditCard,
+    FileText,
+    HelpCircle,
+} from "lucide-react";
 import Button from "@/components/common/Button";
+import Modal from "@/components/common/Modal";
 
-interface SettingItem {
+interface SettingsSection {
     id: string;
-    category: string;
     title: string;
-    description: string;
-    value: string;
-    type: 'toggle' | 'select' | 'input';
-}
-
-function SettingItemRow({ item }: { item: SettingItem }) {
-    return (
-        <div className={cn(
-            "text-sm hover:bg-amber-100/10 text-[var(--secondary)]",
-            "flex h-[48px] p-2 border-b border-[var(--container-border)]"
-        )}>
-            <div className="flex items-center flex-[0.5]">
-                {item.category === 'profile' && <User width={20} height={20} />}
-                {item.category === 'notifications' && <Bell width={20} height={20} />}
-                {item.category === 'security' && <Shield width={20} height={20} />}
-                {item.category === 'appearance' && <Palette width={20} height={20} />}
-                {item.category === 'data' && <Database width={20} height={20} />}
-            </div>
-            <div className="flex items-center flex-[4] cursor-pointer">
-                <div>
-                    <div className="font-medium">{item.title}</div>
-                    <div className="text-xs opacity-60">{item.description}</div>
-                </div>
-            </div>
-            <div className="flex justify-center items-center flex-[2] cursor-pointer">
-                {item.type === 'toggle' ? (
-                    <div className={cn(
-                        "w-10 h-5 rounded-full transition-colors",
-                                                        item.value === 'true' ? 'bg-[var(--primary)]' : 'bg-[var(--gray-300)]'
-                    )}>
-                        <div className={cn(
-                            "w-4 h-4 bg-white rounded-full transition-transform mt-0.5",
-                            item.value === 'true' ? 'translate-x-5' : 'translate-x-0.5'
-                        )} />
-                    </div>
-                ) : (
-                    <span className="text-xs">{item.value}</span>
-                )}
-            </div>
-            <div className="flex justify-end items-center flex-[0.5] cursor-pointer">
-                <ChevronRight width={16} height={16} className="opacity-40" />
-            </div>
-        </div>
-    );
-}
-
-interface MetricItemProps {
-    label: string;
-    value: string;
     icon: React.ReactNode;
-    trend?: string;
+    description: string;
 }
 
-function MetricItem({ label, value, icon, trend }: MetricItemProps) {
-    return (
-        <div className={cn(
-            "text-sm hover:bg-amber-100/10 text-[var(--secondary)]",
-            "flex h-[40px] p-2 border-b border-[var(--container-border)]"
-        )}>
-            <div className="flex items-center flex-[0.5]">
-                {icon}
-            </div>
-            <div className="flex items-center flex-[3] cursor-pointer">
-                {label}
-            </div>
-            <div className="flex justify-end items-center flex-[2] cursor-pointer font-medium">
-                {value}
-            </div>
-            {trend && (
-                <div className="flex justify-end items-center flex-[1] cursor-pointer text-xs text-[var(--primary)]">
-                    {trend}
-                </div>
-            )}
-        </div>
-    );
-}
+export default function Settings() {
+    const [activeSection, setActiveSection] = useState("profile");
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showPasswordField, setShowPasswordField] = useState(false);
+    const [settings, setSettings] = useState({
+        // 프로필 설정
+        profile: {
+            name: "김개발",
+            email: "kim@example.com",
+            phone: "+82 10-1234-5678",
+            location: "서울, 대한민국",
+            bio: "풀스택 개발자이자 프로덕트 메이커입니다.",
+            avatar: "",
+        },
+        // 알림 설정
+        notifications: {
+            email: true,
+            push: true,
+            desktop: false,
+            marketing: false,
+            taskReminders: true,
+            weeklyReports: true,
+            soundEnabled: true,
+        },
+        // 테마 설정
+        appearance: {
+            theme: "system", // light, dark, system
+            accentColor: "#3b82f6",
+            fontSize: "medium", // small, medium, large
+            sidebarCollapsed: false,
+        },
+        // 언어 및 지역
+        localization: {
+            language: "ko",
+            timezone: "Asia/Seoul",
+            dateFormat: "YYYY-MM-DD",
+            timeFormat: "24h",
+            currency: "KRW",
+        },
+        // 보안 설정
+        security: {
+            twoFactorEnabled: false,
+            sessionTimeout: 30,
+            loginNotifications: true,
+        },
+        // 데이터 설정
+        data: {
+            autoBackup: true,
+            backupFrequency: "daily",
+            dataRetention: 365,
+        },
+    });
 
-export default function SettingsPage() {
-    const [isClient, setIsClient] = useState(false);
-    const [settings, setSettings] = useState<SettingItem[]>([]);
-
-    useEffect(() => {
-        setIsClient(true);
-        
-        // 설정 데이터
-        setSettings([
-            {
-                id: '1',
-                category: 'profile',
-                title: '프로필 공개',
-                description: '다른 사용자에게 프로필을 공개합니다',
-                value: 'true',
-                type: 'toggle'
-            },
-            {
-                id: '2',
-                category: 'notifications',
-                title: '이메일 알림',
-                description: '새로운 메시지 시 이메일로 알림을 받습니다',
-                value: 'true',
-                type: 'toggle'
-            },
-            {
-                id: '3',
-                category: 'notifications',
-                title: '푸시 알림',
-                description: '브라우저 푸시 알림을 활성화합니다',
-                value: 'false',
-                type: 'toggle'
-            },
-            {
-                id: '4',
-                category: 'security',
-                title: '2단계 인증',
-                description: '계정 보안을 위한 2단계 인증을 설정합니다',
-                value: '비활성화',
-                type: 'select'
-            },
-            {
-                id: '5',
-                category: 'security',
-                title: '세션 타임아웃',
-                description: '자동 로그아웃 시간을 설정합니다',
-                value: '30분',
-                type: 'select'
-            },
-            {
-                id: '6',
-                category: 'appearance',
-                title: '테마',
-                description: '다크/라이트 모드를 선택합니다',
-                value: 'System',
-                type: 'select'
-            },
-            {
-                id: '7',
-                category: 'appearance',
-                title: '언어',
-                description: '인터페이스 언어를 설정합니다',
-                value: '한국어',
-                type: 'select'
-            },
-            {
-                id: '8',
-                category: 'data',
-                title: '데이터 백업',
-                description: '자동 데이터 백업을 활성화합니다',
-                value: 'true',
-                type: 'toggle'
-            }
-        ]);
-    }, []);
-
-    if (!isClient) {
-        return (
-            <div className="flex items-center justify-center h-full">
-                <span className="text-sm text-[var(--secondary)] opacity-60">Loading...</span>
-            </div>
-        );
-    }
-
-    const enabledSettings = settings.filter(setting => setting.value === 'true').length;
-    const categories = [...new Set(settings.map(setting => setting.category))];
-
-    const metrics = [
+    const sections: SettingsSection[] = [
         {
-            label: "활성화된 설정",
-            value: enabledSettings.toString(),
-            icon: <Settings width={20} height={20} />,
-            trend: "설정됨"
+            id: "profile",
+            title: "프로필",
+            icon: <User className="w-4 h-4" />,
+            description: "개인 정보 및 프로필 설정",
         },
         {
-            label: "설정 카테고리",
-            value: categories.length.toString(),
-            icon: <Palette width={20} height={20} />,
-            trend: "그룹"
+            id: "notifications",
+            title: "알림",
+            icon: <Bell className="w-4 h-4" />,
+            description: "알림 및 메시지 설정",
         },
         {
-            label: "보안 수준",
-            value: "중간",
-            icon: <Shield width={20} height={20} />,
-            trend: "안전"
-        }
+            id: "appearance",
+            title: "모양",
+            icon: <Palette className="w-4 h-4" />,
+            description: "테마 및 인터페이스 설정",
+        },
+        {
+            id: "localization",
+            title: "언어 및 지역",
+            icon: <Globe className="w-4 h-4" />,
+            description: "언어, 시간대 및 지역 설정",
+        },
+        {
+            id: "security",
+            title: "보안",
+            icon: <Shield className="w-4 h-4" />,
+            description: "계정 보안 및 개인정보 보호",
+        },
+        {
+            id: "data",
+            title: "데이터",
+            icon: <Database className="w-4 h-4" />,
+            description: "백업 및 데이터 관리",
+        },
     ];
 
-    const groupedSettings = settings.reduce((acc, setting) => {
-        if (!acc[setting.category]) {
-            acc[setting.category] = [];
-        }
-        acc[setting.category].push(setting);
-        return acc;
-    }, {} as Record<string, SettingItem[]>);
+    const handleSettingChange = (section: string, key: string, value: any) => {
+        setSettings(prev => ({
+            ...prev,
+            [section]: {
+                ...prev[section as keyof typeof prev],
+                [key]: value,
+            },
+        }));
+    };
 
-    const categoryNames = {
-        profile: '프로필',
-        notifications: '알림',
-        security: '보안',
-        appearance: '모양',
-        data: '데이터'
+    const handleSaveSettings = () => {
+        // 설정 저장 로직
+        console.log("Settings saved:", settings);
+    };
+
+    const handleExportData = () => {
+        // 데이터 내보내기 로직
+        console.log("Exporting data...");
+    };
+
+    const handleDeleteAccount = () => {
+        // 계정 삭제 로직
+        console.log("Account deletion requested");
+        setShowDeleteModal(false);
+    };
+
+    const renderProfileSection = () => (
+        <div className="space-y-6">
+            <div>
+                <h3 className="text-lg font-semibold text-[var(--secondary)] mb-4">
+                    기본 정보
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--secondary)] mb-2">
+                            이름
+                        </label>
+                        <input
+                            type="text"
+                            value={settings.profile.name}
+                            onChange={(e) => handleSettingChange("profile", "name", e.target.value)}
+                            className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--container-border)] rounded-lg text-[var(--secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--secondary)] mb-2">
+                            이메일
+                        </label>
+                        <input
+                            type="email"
+                            value={settings.profile.email}
+                            onChange={(e) => handleSettingChange("profile", "email", e.target.value)}
+                            className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--container-border)] rounded-lg text-[var(--secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--secondary)] mb-2">
+                            전화번호
+                        </label>
+                        <input
+                            type="tel"
+                            value={settings.profile.phone}
+                            onChange={(e) => handleSettingChange("profile", "phone", e.target.value)}
+                            className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--container-border)] rounded-lg text-[var(--secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--secondary)] mb-2">
+                            위치
+                        </label>
+                        <input
+                            type="text"
+                            value={settings.profile.location}
+                            onChange={(e) => handleSettingChange("profile", "location", e.target.value)}
+                            className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--container-border)] rounded-lg text-[var(--secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                        />
+                    </div>
+                </div>
+                <div className="mt-4">
+                    <label className="block text-sm font-medium text-[var(--secondary)] mb-2">
+                        소개
+                    </label>
+                    <textarea
+                        value={settings.profile.bio}
+                        onChange={(e) => handleSettingChange("profile", "bio", e.target.value)}
+                        className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--container-border)] rounded-lg text-[var(--secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 h-24 resize-none"
+                        placeholder="자신에 대해 간단히 소개해주세요"
+                    />
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderNotificationsSection = () => (
+        <div className="space-y-6">
+            <div>
+                <h3 className="text-lg font-semibold text-[var(--secondary)] mb-4">
+                    알림 설정
+                </h3>
+                <div className="space-y-4">
+                    {[
+                        { key: "email", label: "이메일 알림", description: "중요한 업데이트를 이메일로 받기" },
+                        { key: "push", label: "푸시 알림", description: "브라우저 푸시 알림 받기" },
+                        { key: "desktop", label: "데스크톱 알림", description: "데스크톱 알림 표시" },
+                        { key: "marketing", label: "마케팅 알림", description: "제품 업데이트 및 프로모션 정보" },
+                        { key: "taskReminders", label: "작업 알림", description: "작업 마감일 및 리마인더" },
+                        { key: "weeklyReports", label: "주간 리포트", description: "주간 활동 요약 받기" },
+                        { key: "soundEnabled", label: "알림 소리", description: "알림 시 소리 재생" },
+                    ].map((item) => (
+                        <div key={item.key} className="flex items-center justify-between p-4 bg-[var(--background)] border border-[var(--container-border)] rounded-lg">
+                            <div>
+                                <div className="font-medium text-[var(--secondary)]">{item.label}</div>
+                                <div className="text-sm text-[var(--secondary)]/70">{item.description}</div>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={settings.notifications[item.key as keyof typeof settings.notifications] as boolean}
+                                    onChange={(e) => handleSettingChange("notifications", item.key, e.target.checked)}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-[var(--container-border)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--primary)]"></div>
+                            </label>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderAppearanceSection = () => (
+        <div className="space-y-6">
+            <div>
+                <h3 className="text-lg font-semibold text-[var(--secondary)] mb-4">
+                    테마 설정
+                </h3>
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--secondary)] mb-3">
+                            테마 모드
+                        </label>
+                        <div className="grid grid-cols-3 gap-3">
+                            {[
+                                { value: "light", label: "라이트", icon: <Sun className="w-4 h-4" /> },
+                                { value: "dark", label: "다크", icon: <Moon className="w-4 h-4" /> },
+                                { value: "system", label: "시스템", icon: <Monitor className="w-4 h-4" /> },
+                            ].map((theme) => (
+                                <Button
+                                    key={theme.value}
+                                    onClick={() => handleSettingChange("appearance", "theme", theme.value)}
+                                    className={cn(
+                                        "flex flex-col items-center gap-2 p-4 border rounded-lg transition-all",
+                                        settings.appearance.theme === theme.value
+                                            ? "border-[var(--primary)] bg-[var(--primary)]/10"
+                                            : "border-[var(--container-border)] hover:border-[var(--primary)]/50"
+                                    )}
+                                >
+                                    {theme.icon}
+                                    <span className="text-sm font-medium text-[var(--secondary)]">
+                                        {theme.label}
+                                    </span>
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--secondary)] mb-3">
+                            글꼴 크기
+                        </label>
+                        <select
+                            value={settings.appearance.fontSize}
+                            onChange={(e) => handleSettingChange("appearance", "fontSize", e.target.value)}
+                            className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--container-border)] rounded-lg text-[var(--secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                        >
+                            <option value="small">작게</option>
+                            <option value="medium">보통</option>
+                            <option value="large">크게</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderSecuritySection = () => (
+        <div className="space-y-6">
+            <div>
+                <h3 className="text-lg font-semibold text-[var(--secondary)] mb-4">
+                    계정 보안
+                </h3>
+                <div className="space-y-4">
+                    <div className="p-4 bg-[var(--background)] border border-[var(--container-border)] rounded-lg">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="font-medium text-[var(--secondary)]">2단계 인증</div>
+                                <div className="text-sm text-[var(--secondary)]/70">
+                                    계정 보안을 강화하기 위해 2단계 인증을 활성화하세요
+                                </div>
+                            </div>
+                            <Button
+                                onClick={() => handleSettingChange("security", "twoFactorEnabled", !settings.security.twoFactorEnabled)}
+                                className={cn(
+                                    "px-4 py-2 rounded-lg transition-colors",
+                                    settings.security.twoFactorEnabled
+                                        ? "bg-red-500 text-white hover:bg-red-600"
+                                        : "bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90"
+                                )}
+                            >
+                                {settings.security.twoFactorEnabled ? "비활성화" : "활성화"}
+                            </Button>
+                        </div>
+                    </div>
+                    
+                    <div className="p-4 bg-[var(--background)] border border-[var(--container-border)] rounded-lg">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="font-medium text-[var(--secondary)]">비밀번호 변경</div>
+                                <div className="text-sm text-[var(--secondary)]/70">
+                                    정기적으로 비밀번호를 변경하세요
+                                </div>
+                            </div>
+                            <Button
+                                onClick={() => setShowPasswordField(!showPasswordField)}
+                                className="px-4 py-2 border border-[var(--container-border)] text-[var(--secondary)] rounded-lg hover:bg-[var(--container-border)]/20 transition-colors"
+                            >
+                                변경
+                            </Button>
+                        </div>
+                        {showPasswordField && (
+                            <div className="mt-4 space-y-3">
+                                <input
+                                    type="password"
+                                    placeholder="현재 비밀번호"
+                                    className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--container-border)] rounded-lg text-[var(--secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                />
+                                <input
+                                    type="password"
+                                    placeholder="새 비밀번호"
+                                    className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--container-border)] rounded-lg text-[var(--secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                />
+                                <input
+                                    type="password"
+                                    placeholder="새 비밀번호 확인"
+                                    className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--container-border)] rounded-lg text-[var(--secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                                />
+                                <div className="flex gap-2">
+                                    <Button className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors">
+                                        저장
+                                    </Button>
+                                    <Button
+                                        onClick={() => setShowPasswordField(false)}
+                                        className="px-4 py-2 border border-[var(--container-border)] text-[var(--secondary)] rounded-lg hover:bg-[var(--container-border)]/20 transition-colors"
+                                    >
+                                        취소
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderDataSection = () => (
+        <div className="space-y-6">
+            <div>
+                <h3 className="text-lg font-semibold text-[var(--secondary)] mb-4">
+                    데이터 관리
+                </h3>
+                <div className="space-y-4">
+                    <div className="p-4 bg-[var(--background)] border border-[var(--container-border)] rounded-lg">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <div className="font-medium text-[var(--secondary)]">데이터 내보내기</div>
+                                <div className="text-sm text-[var(--secondary)]/70">
+                                    모든 데이터를 JSON 형식으로 다운로드
+                                </div>
+                            </div>
+                            <Button
+                                onClick={handleExportData}
+                                className="flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary)]/90 transition-colors"
+                            >
+                                <Download className="w-4 h-4" />
+                                내보내기
+                            </Button>
+                        </div>
+                    </div>
+                    
+                    <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="font-medium text-red-400">계정 삭제</div>
+                                <div className="text-sm text-red-400/70">
+                                    계정과 모든 데이터가 영구적으로 삭제됩니다
+                                </div>
+                            </div>
+                            <Button
+                                onClick={() => setShowDeleteModal(true)}
+                                className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                삭제
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderContent = () => {
+        switch (activeSection) {
+            case "profile":
+                return renderProfileSection();
+            case "notifications":
+                return renderNotificationsSection();
+            case "appearance":
+                return renderAppearanceSection();
+            case "security":
+                return renderSecuritySection();
+            case "data":
+                return renderDataSection();
+            default:
+                return renderProfileSection();
+        }
     };
 
     return (
-        <div className={cn("flex flex-col h-full")}>
+        <div className="flex flex-col h-full">
             {/* 헤더 */}
-            <div className={cn(
-                "border-b border-[var(--container-border)]",
-                "flex items-center flex-[0.5] px-2"
-            )}>
-                <span className="text-sm font-medium text-[var(--secondary)]">Settings</span>
+            <div className="bg-[var(--background)] border-b border-[var(--container-border)] px-6 py-4">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-xl font-semibold text-[var(--secondary)] mb-1">
+                            설정
+                        </h1>
+                        <p className="text-sm text-[var(--secondary)]/70">
+                            계정 및 애플리케이션 설정을 관리하세요
+                        </p>
+                    </div>
+                    <Button
+                        onClick={handleSaveSettings}
+                        className="flex items-center gap-2 bg-[var(--primary)] text-white px-4 py-2 rounded-lg hover:bg-[var(--primary)]/90 transition-colors"
+                    >
+                        <Save className="w-4 h-4" />
+                        저장
+                    </Button>
+                </div>
             </div>
 
-            {/* 액션 바 */}
-            <div className={cn(
-                "border-b border-[var(--container-border)]",
-                "flex justify-end items-center flex-[0.5] px-2"
-            )}>
-                <Button onClick={() => {}}>
-                    <div className="flex gap-2 items-center">
-                        <PlusIcon width={20} height={20} />
-                        <span>Add Setting</span>
-                    </div>
-                </Button>
-            </div>
-
-            {/* 메인 콘텐츠 */}
-            <div className={cn(
-                "bg-[var(--background)]",
-                "scrollbar-container will-change-scroll flex-[8] h-full overflow-y-auto z-1"
-            )}>
-                {/* 메트릭스 섹션 */}
-                <div className="border-b border-[var(--container-border)] mb-4">
-                    <div className="p-2 text-xs font-medium text-[var(--secondary)] opacity-60">
-                        METRICS
-                    </div>
-                    {metrics.map((metric, index) => (
-                        <MetricItem
-                            key={index}
-                            label={metric.label}
-                            value={metric.value}
-                            icon={metric.icon}
-                            trend={metric.trend}
-                        />
-                    ))}
+            <div className="flex flex-1 overflow-hidden">
+                {/* 사이드바 */}
+                <div className="w-64 bg-[var(--background)] border-r border-[var(--container-border)] p-4">
+                    <nav className="space-y-2">
+                        {sections.map((section) => (
+                            <button
+                                key={section.id}
+                                onClick={() => setActiveSection(section.id)}
+                                className={cn(
+                                    "w-full flex items-center gap-3 px-3 py-2 text-left rounded-lg transition-colors",
+                                    activeSection === section.id
+                                        ? "bg-[var(--primary)]/10 text-[var(--primary)] border border-[var(--primary)]/20"
+                                        : "text-[var(--secondary)]/70 hover:text-[var(--secondary)] hover:bg-[var(--container-border)]/20"
+                                )}
+                            >
+                                {section.icon}
+                                <div>
+                                    <div className="font-medium">{section.title}</div>
+                                    <div className="text-xs opacity-70">{section.description}</div>
+                                </div>
+                            </button>
+                        ))}
+                    </nav>
                 </div>
 
-                {/* 설정 목록 */}
-                {Object.entries(groupedSettings).map(([category, categorySettings]) => (
-                    <div key={category} className="border-b border-[var(--container-border)] mb-4">
-                        <div className="p-2 text-xs font-medium text-[var(--secondary)] opacity-60">
-                            {categoryNames[category as keyof typeof categoryNames]?.toUpperCase() || category.toUpperCase()}
-                        </div>
-                        {categorySettings.map((setting) => (
-                            <SettingItemRow key={setting.id} item={setting} />
-                        ))}
-                    </div>
-                ))}
+                {/* 메인 콘텐츠 */}
+                <div className="flex-1 p-6 overflow-y-auto bg-[var(--background)]">
+                    {renderContent()}
+                </div>
             </div>
+
+            {/* 계정 삭제 확인 모달 */}
+            {showDeleteModal && (
+                <Modal
+                    isOpen={showDeleteModal}
+                    onClose={() => setShowDeleteModal(false)}
+                >
+                    <div className="p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-red-500/20 rounded-full">
+                                <Trash2 className="w-5 h-5 text-red-500" />
+                            </div>
+                            <h2 className="text-xl font-semibold text-[var(--secondary)]">
+                                계정 삭제
+                            </h2>
+                        </div>
+                        
+                        <div className="mb-6">
+                            <p className="text-[var(--secondary)]/80 mb-4">
+                                정말로 계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없으며, 
+                                모든 데이터가 영구적으로 삭제됩니다.
+                            </p>
+                            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                                <p className="text-sm text-red-400">
+                                    ⚠️ 삭제될 데이터: 프로필, 프로젝트, 작업, 설정 등 모든 정보
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div className="flex gap-3">
+                            <Button
+                                onClick={() => setShowDeleteModal(false)}
+                                className="flex-1 px-4 py-2 border border-[var(--container-border)] text-[var(--secondary)] rounded-lg hover:bg-[var(--container-border)]/20 transition-colors"
+                            >
+                                취소
+                            </Button>
+                            <Button
+                                onClick={handleDeleteAccount}
+                                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                            >
+                                삭제
+                            </Button>
+                        </div>
+                    </div>
+                </Modal>
+            )}
         </div>
     );
 }

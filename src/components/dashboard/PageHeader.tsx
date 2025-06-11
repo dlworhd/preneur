@@ -15,7 +15,7 @@ export default function PageHeader({ title, children, className }: PageHeaderPro
             "h-12 px-4",
             className
         )}>
-            <span className="text-sm font-medium text-[var(--secondary)]">
+            <span className="m font-medium">
                 {title}
             </span>
             {children}

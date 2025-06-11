@@ -43,7 +43,7 @@ export default function Toast({
     return (
         <div
             className={cn(
-                "fixed bottom-4 right-4 p-4 rounded-md text-white shadow-lg z-50",
+                "fixed bottom-4 right-4 p-4 rounded-md  shadow-lg z-50",
                 "animate-in slide-in-from-right-5 fade-in",
                 "animate-out slide-out-to-right-5 fade-out",
                 getBgColor()
